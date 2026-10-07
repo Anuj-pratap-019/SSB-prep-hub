@@ -20,9 +20,10 @@ const STAGES = {
 };
 
 export default function PPDT() {
-  const [selectedSceneIndex, setSelectedSceneIndex] = useState(0);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [stage, setStage] = useState(STAGES.PREPARE);
   const [secondsLeft, setSecondsLeft] = useState(30);
+  const [transitionNotice, setTransitionNotice] = useState('');
 
   // Form State
   const [characters, setCharacters] = useState({
@@ -39,7 +40,23 @@ export default function PPDT() {
   const [evaluation, setEvaluation] = useState(null);
   const [evalError, setEvalError] = useState(null);
 
-  const activeImage = PPDT_IMAGES[selectedSceneIndex] || PPDT_IMAGES[0];
+  const activeImage = PPDT_IMAGES[selectedImageIndex] || PPDT_IMAGES[0];
+
+  const playBuzzer = () => {
+    const audioContext = new window.AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + 0.35);
+    gain.gain.setValueAtTime(0.18, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.35);
+    oscillator.addEventListener('ended', () => audioContext.close());
+  };
 
   // Stage Timer Handler
   useEffect(() => {
@@ -64,6 +81,8 @@ export default function PPDT() {
   }, [stage, secondsLeft]);
 
   const startTest = () => {
+    setSelectedImageIndex(Math.floor(Math.random() * PPDT_IMAGES.length));
+    setTransitionNotice('');
     setStage(STAGES.IMAGE_OBSERVE);
     setSecondsLeft(30); // 30s official SSB picture exposure
   };
@@ -79,8 +98,19 @@ export default function PPDT() {
         setSecondsLeft(240); // 4 minutes to write story
         break;
       case STAGES.STORY_WRITING:
-        setStage(STAGES.NARRATION);
-        setSecondsLeft(60); // 1 minute individual narration
+        if (secondsLeft > 0) {
+          setStage(STAGES.NARRATION);
+          setSecondsLeft(60);
+          break;
+        }
+        if (transitionNotice) return;
+        setTransitionNotice('Time is up — narration begins now');
+        playBuzzer();
+        window.setTimeout(() => {
+          setTransitionNotice('');
+          setStage(STAGES.NARRATION);
+          setSecondsLeft(60); // 1 minute individual narration
+        }, 1200);
         break;
       case STAGES.NARRATION:
         triggerEvaluation();
@@ -111,7 +141,9 @@ export default function PPDT() {
 
   const resetAll = () => {
     setStage(STAGES.PREPARE);
+    setSelectedImageIndex(null);
     setSecondsLeft(30);
+    setTransitionNotice('');
     setActionSummary('');
     setStoryText('');
     setNarrationTranscript('');
@@ -187,36 +219,10 @@ export default function PPDT() {
             </div>
           </div>
 
-          {/* Stimulus Selector */}
-          <div className="space-y-3 pt-2">
-            <label className="text-xs font-mono uppercase tracking-wider text-[#9a9780] block font-bold">
-              Select PPDT Picture Stimulus ({PPDT_IMAGES.length} Available)
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {PPDT_IMAGES.map((image, idx) => (
-                <button
-                  key={image.id}
-                  onClick={() => setSelectedSceneIndex(idx)}
-                  className={`rounded-xl border text-left overflow-hidden transition-all ${
-                    selectedSceneIndex === idx
-                      ? 'border-[#c8a84b] bg-[#2d3a18] shadow-md shadow-[#c8a84b]/10'
-                      : 'border-[#3a4520] bg-[#12160a] hover:border-[#c8a84b]/40'
-                  }`}
-                >
-                  <img
-                    src={image.image}
-                    alt={image.title}
-                    className="w-full aspect-[16/10] object-cover bg-black"
-                  />
-                  <span className="text-[10px] font-mono text-[#c8a84b] block uppercase px-3 pt-2">
-                    Stimulus #{image.id}
-                  </span>
-                  <span className="font-heading text-sm text-[#e8e4d0] font-bold block truncate px-3 pb-3">
-                    {image.title}
-                  </span>
-                </button>
-              ))}
-            </div>
+          <div className="bg-[#12160a] border border-[#3a4520] rounded-xl p-4 text-sm text-[#9a9780]">
+            A picture will be selected randomly and shown only when the assessment begins.
+            You will have 30 seconds to observe it, followed by the character box, story writing,
+            and narration stages.
           </div>
 
           {/* Launch Action */}
@@ -225,7 +231,7 @@ export default function PPDT() {
               onClick={startTest}
               className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#c8a84b] to-[#a8882e] hover:from-[#d8b85b] hover:to-[#b8983e] text-[#12160a] font-heading text-base font-bold uppercase tracking-wider shadow-xl flex items-center gap-2 transform hover:scale-[1.02] transition-all"
             >
-              <span>Begin Official 30s Observation</span>
+              <span>Begin Assessment — Random Picture</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
@@ -382,6 +388,12 @@ export default function PPDT() {
       {/* ──────────────── STAGE 3: 4m STORY WRITING ──────────────── */}
       {stage === STAGES.STORY_WRITING && (
         <div className="bg-[#1b2212] border-2 border-[#3a4520] rounded-2xl p-6 sm:p-8 space-y-6">
+          {transitionNotice && (
+            <div className="flex items-center justify-center gap-3 rounded-xl border-2 border-red-500 bg-red-950/40 px-4 py-3 text-red-300 font-heading font-bold uppercase tracking-wider animate-pulse">
+              <AlertCircle className="w-5 h-5" />
+              {transitionNotice}
+            </div>
+          )}
           <div className="flex items-center justify-between border-b border-[#3a4520] pb-4">
             <div>
               <span className="text-xs font-mono uppercase text-[#c8a84b] font-bold">
