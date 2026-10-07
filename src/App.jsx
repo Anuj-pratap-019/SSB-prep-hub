@@ -13,6 +13,7 @@ import PIMock from './pages/PIMock';
 import SD from './pages/SD';
 import GTOGuide from './pages/GTOGuide';
 import Dashboard from './pages/Dashboard';
+import AdminImages from './pages/AdminImages';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/pi" element={<PIMock />} />
             <Route path="/gto" element={<GTOGuide />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/admin/images" element={<AdminImages />} />
             
             {/* Catch-all redirect to Home */}
             <Route path="*" element={<Navigate to="/" replace />} />

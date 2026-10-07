@@ -240,6 +240,19 @@ export default function Navbar() {
               <BarChart3 className="w-3.5 h-3.5 text-[#c8a84b]" />
               <span>Analytics</span>
             </NavLink>
+            <NavLink
+              to="/admin/images"
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-semibold uppercase tracking-wider transition-colors ${
+                  isActive
+                    ? 'bg-[#283214] text-[#c8a84b] border border-[#c8a84b]/50 shadow-sm'
+                    : 'text-[#c0bba8] hover:text-[#e8e4d0] hover:bg-[#1f2514]'
+                }`
+              }
+            >
+              <Shield className="w-3.5 h-3.5 text-[#c8a84b]" />
+              <span>Admin</span>
+            </NavLink>
           </nav>
 
           {/* Right Status Pill & Mobile Menu Toggle */}
