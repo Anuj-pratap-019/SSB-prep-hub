@@ -3,7 +3,7 @@ import { Eye, Edit3, Mic, Sparkles, AlertCircle, ArrowRight, RotateCcw, Clock, C
 import TimerCircle from '../components/TimerCircle';
 import SpeechRecorder from '../components/SpeechRecorder';
 import AIReviewReport from '../components/AIReviewReport';
-import { PPDT_SCENES } from '../data/ppdtScenes';
+import { PPDT_IMAGES } from '../data/ppdtImages';
 import { evaluatePPDT } from '../services/gemini';
 
 import TestPageHeader from '../components/TestPageHeader';
@@ -39,7 +39,7 @@ export default function PPDT() {
   const [evaluation, setEvaluation] = useState(null);
   const [evalError, setEvalError] = useState(null);
 
-  const activeScene = PPDT_SCENES[selectedSceneIndex] || PPDT_SCENES[0];
+  const activeImage = PPDT_IMAGES[selectedSceneIndex] || PPDT_IMAGES[0];
 
   // Stage Timer Handler
   useEffect(() => {
@@ -190,27 +190,29 @@ export default function PPDT() {
           {/* Stimulus Selector */}
           <div className="space-y-3 pt-2">
             <label className="text-xs font-mono uppercase tracking-wider text-[#9a9780] block font-bold">
-              Select PPDT Picture Stimulus ({PPDT_SCENES.length} Available)
+              Select PPDT Picture Stimulus ({PPDT_IMAGES.length} Available)
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {PPDT_SCENES.map((scene, idx) => (
+              {PPDT_IMAGES.map((image, idx) => (
                 <button
-                  key={scene.id}
+                  key={image.id}
                   onClick={() => setSelectedSceneIndex(idx)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`rounded-xl border text-left overflow-hidden transition-all ${
                     selectedSceneIndex === idx
                       ? 'border-[#c8a84b] bg-[#2d3a18] shadow-md shadow-[#c8a84b]/10'
                       : 'border-[#3a4520] bg-[#12160a] hover:border-[#c8a84b]/40'
                   }`}
                 >
-                  <span className="text-[10px] font-mono text-[#c8a84b] block uppercase">
-                    Stimulus #{scene.id}
+                  <img
+                    src={image.image}
+                    alt={image.title}
+                    className="w-full aspect-[16/10] object-cover bg-black"
+                  />
+                  <span className="text-[10px] font-mono text-[#c8a84b] block uppercase px-3 pt-2">
+                    Stimulus #{image.id}
                   </span>
-                  <span className="font-heading text-sm text-[#e8e4d0] font-bold block truncate">
-                    {scene.title}
-                  </span>
-                  <span className="text-[11px] text-[#9a9780] block truncate">
-                    {scene.category}
+                  <span className="font-heading text-sm text-[#e8e4d0] font-bold block truncate px-3 pb-3">
+                    {image.title}
                   </span>
                 </button>
               ))}
@@ -251,11 +253,13 @@ export default function PPDT() {
             />
           </div>
 
-          {/* SVG Hazy Ambiguous Scene Display */}
-          <div 
-            className="w-full aspect-[16/10] max-h-[460px] rounded-xl overflow-hidden border-2 border-[#3a4520] bg-black shadow-inner flex items-center justify-center"
-            dangerouslySetInnerHTML={{ __html: activeScene.svgContent }}
-          />
+          <div className="w-full aspect-[16/10] max-h-[460px] rounded-xl overflow-hidden border-2 border-[#3a4520] bg-black shadow-inner flex items-center justify-center">
+            <img
+              src={activeImage.image}
+              alt={activeImage.title}
+              className="w-full h-full object-contain"
+            />
+          </div>
 
           <div className="flex justify-between items-center text-xs font-mono text-[#9a9780]">
             <span>Tip: Identify the central character (your age), mood, and what led to this situation.</span>
