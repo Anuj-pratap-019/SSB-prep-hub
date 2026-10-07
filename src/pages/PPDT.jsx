@@ -34,6 +34,7 @@ export default function PPDT() {
   });
   const [actionSummary, setActionSummary] = useState('');
   const [storyText, setStoryText] = useState('');
+  const [storyImage, setStoryImage] = useState(null);
   const [narrationTranscript, setNarrationTranscript] = useState('');
 
   // AI Evaluation State
@@ -73,8 +74,14 @@ export default function PPDT() {
         setSecondsLeft((prev) => prev - 1);
       }, 1000);
     } else if (shouldTick && secondsLeft === 0) {
-      // Transition automatically on timer completion
-      handleStageAdvance();
+      if (stage === STAGES.IMAGE_OBSERVE || stage === STAGES.BOX_MARKING) {
+        handleStageAdvance();
+      } else if (stage === STAGES.STORY_WRITING && !transitionNotice) {
+        setTransitionNotice('Writing time is up. Start narration when you are ready.');
+        playBuzzer();
+      } else if (stage === STAGES.NARRATION) {
+        triggerEvaluation();
+      }
     }
 
     return () => clearInterval(timer);
@@ -99,18 +106,10 @@ export default function PPDT() {
         break;
       case STAGES.STORY_WRITING:
         if (secondsLeft > 0) {
-          setStage(STAGES.NARRATION);
-          setSecondsLeft(60);
-          break;
+          setTransitionNotice('Writing ended. Start narration when you are ready.');
+        } else if (!transitionNotice) {
+          setTransitionNotice('Writing time is up. Start narration when you are ready.');
         }
-        if (transitionNotice) return;
-        setTransitionNotice('Time is up — narration begins now');
-        playBuzzer();
-        window.setTimeout(() => {
-          setTransitionNotice('');
-          setStage(STAGES.NARRATION);
-          setSecondsLeft(60); // 1 minute individual narration
-        }, 1200);
         break;
       case STAGES.NARRATION:
         triggerEvaluation();
@@ -118,6 +117,32 @@ export default function PPDT() {
       default:
         break;
     }
+  };
+
+  const startNarration = () => {
+    setTransitionNotice('');
+    setStage(STAGES.NARRATION);
+    setSecondsLeft(60);
+  };
+
+  const handleStoryImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setEvalError('Please upload a JPG, PNG, or WEBP image of your handwritten story.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result);
+      const [header, data] = result.split(',');
+      setStoryImage({ data, mimeType: header.match(/data:(.*);base64/)?.[1] || file.type, preview: result });
+      setEvalError(null);
+    };
+    reader.onerror = () => setEvalError('The handwritten story image could not be read.');
+    reader.readAsDataURL(file);
   };
 
   const triggerEvaluation = async () => {
@@ -128,7 +153,8 @@ export default function PPDT() {
         story: storyText || 'Candidate did not complete story in allotted time.',
         characters,
         actionSummary,
-        narration: narrationTranscript
+        narration: narrationTranscript,
+        storyImage
       });
       setEvaluation(res);
       setStage(STAGES.RESULT);
@@ -146,6 +172,7 @@ export default function PPDT() {
     setTransitionNotice('');
     setActionSummary('');
     setStoryText('');
+    setStoryImage(null);
     setNarrationTranscript('');
     setEvaluation(null);
     setEvalError(null);
@@ -158,10 +185,9 @@ export default function PPDT() {
       <TestPageHeader
         stage="Stage 1: Screening Test"
         title="PPDT AI Simulator"
-        subtitle="Picture Perception & Discussion Test — 30s observation, 1m character box, 4m story writing, and 1m live speech narration."
         badge="Flagship AI Module"
         actions={
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center justify-end gap-2 flex-wrap max-w-full">
             {[
               { id: STAGES.IMAGE_OBSERVE, label: '1. Picture (30s)' },
               { id: STAGES.BOX_MARKING, label: '2. Box (1m)' },
@@ -173,10 +199,10 @@ export default function PPDT() {
               return (
                 <span
                   key={s.id}
-                  className={`text-[11px] font-mono px-2.5 py-1 rounded-lg transition-colors ${
+                  className={`text-xs font-mono font-semibold px-3 py-2 rounded-lg border-2 transition-colors whitespace-nowrap ${
                     isCurrent
-                      ? 'bg-[#c8a84b] text-[#12160a] font-bold shadow'
-                      : 'bg-[#182012] text-[#8e8b78] border border-[#2e3a19]'
+                    ? 'bg-[#c8a84b] text-[#12160a] border-[#c8a84b] shadow-md'
+                    : 'bg-[#182012] text-[#b6b298] border-[#3a4520] hover:border-[#c8a84b]/60'
                   }`}
                 >
                   {s.label}
@@ -211,7 +237,7 @@ export default function PPDT() {
             </div>
             <div className="bg-[#12160a] border border-[#3a4520] p-4 rounded-xl space-y-1">
               <span className="font-heading text-amber-400 font-bold text-sm block">3. 4 Minutes</span>
-              <p className="text-xs text-[#9a9780]">Write complete story: Past background $\rightarrow$ Present decisive action $\rightarrow$ Positive outcome.</p>
+              <p className="text-xs text-[#9a9780]">Write complete story: Past background → Present decisive action → Positive outcome.</p>
             </div>
             <div className="bg-[#12160a] border border-[#3a4520] p-4 rounded-xl space-y-1">
               <span className="font-heading text-sky-400 font-bold text-sm block">4. 1 Minute</span>
@@ -273,7 +299,7 @@ export default function PPDT() {
               onClick={handleStageAdvance}
               className="text-[#c8a84b] hover:underline flex items-center gap-1 font-bold"
             >
-              Skip Ahead to Box Marking &rarr;
+              Skip Ahead to Box Marking →
             </button>
           </div>
         </div>
@@ -379,7 +405,7 @@ export default function PPDT() {
               onClick={handleStageAdvance}
               className="px-6 py-2.5 rounded-lg bg-[#c8a84b] hover:bg-[#a8882e] text-[#12160a] font-heading font-bold text-xs uppercase tracking-wider"
             >
-              Proceed to Story Writing (4 Min) &rarr;
+              Proceed to Story Writing (4 Min) →
             </button>
           </div>
         </div>
@@ -400,7 +426,7 @@ export default function PPDT() {
                 SSB PPDT Answer Sheet — Part II
               </span>
               <h2 className="font-heading text-xl text-[#e8e4d0] font-bold">
-                Write Your Story (Past $\rightarrow$ Present $\rightarrow$ Future)
+                Write Your Story (Past → Present → Future)
               </h2>
             </div>
             <TimerCircle
@@ -433,15 +459,39 @@ export default function PPDT() {
             />
           </div>
 
+          <div className="rounded-xl border border-dashed border-[#c8a84b]/60 bg-[#12160a] p-4 space-y-3">
+            <div>
+              <label htmlFor="handwritten-story" className="text-xs font-mono uppercase text-[#c8a84b] font-bold block">
+                Prefer handwriting?
+              </label>
+              <p className="text-xs text-[#9a9780] mt-1">
+                Upload a clear photo of your handwritten story. Gemini will read it for the AI dossier.
+              </p>
+            </div>
+            <input
+              id="handwritten-story"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleStoryImageChange}
+              className="block w-full text-xs text-[#9a9780] file:mr-3 file:rounded-lg file:border-0 file:bg-[#c8a84b] file:px-3 file:py-2 file:font-bold file:text-[#12160a] hover:file:bg-[#d8b85b]"
+            />
+            {storyImage && (
+              <div className="flex items-center gap-3 text-xs text-emerald-300">
+                <img src={storyImage.preview} alt="Handwritten story preview" className="h-16 w-24 rounded object-cover border border-[#3a4520]" />
+                <span>Handwritten story attached for assessment.</span>
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-between items-center pt-2">
             <span className="text-xs text-[#9a9780] font-mono">
-              Timer will automatically transition to Narration when finished.
+              When time is up, start narration yourself when you are ready.
             </span>
             <button
-              onClick={handleStageAdvance}
+              onClick={startNarration}
               className="px-6 py-2.5 rounded-lg bg-[#c8a84b] hover:bg-[#a8882e] text-[#12160a] font-heading font-bold text-xs uppercase tracking-wider"
             >
-              Done Writing &rarr; Proceed to Narration
+              Start Narration →
             </button>
           </div>
         </div>

@@ -5,13 +5,18 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const PRIMARY_MODEL = 'gemini-flash-latest';
 const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
 
-async function callGemini(prompt, systemInstruction = '', jsonMode = true) {
+async function callGemini(prompt, systemInstruction = '', jsonMode = true, image = null) {
   if (!API_KEY) {
     throw new Error('Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in .env');
   }
 
   const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
+    contents: [{
+      parts: [
+        { text: prompt },
+        ...(image ? [{ inlineData: { mimeType: image.mimeType, data: image.data } }] : [])
+      ]
+    }],
     generationConfig: {
       temperature: 0.4,
       maxOutputTokens: 2048,
@@ -69,7 +74,7 @@ async function callGemini(prompt, systemInstruction = '', jsonMode = true) {
 /**
  * PPDT Story Evaluation
  */
-export async function evaluatePPDT({ story, characters, actionSummary, narration = '' }) {
+export async function evaluatePPDT({ story, characters, actionSummary, narration = '', storyImage = null }) {
   const systemInstruction = `You are a Senior Psychological Assessor (Psychologist) at a Services Selection Board (SSB), Indian Armed Forces.
 You assess candidate PPDT (Picture Perception and Discussion Test) stories strictly on the 15 Officer Like Qualities (OLQs):
 Factor 1: Effective Intelligence, Reasoning Ability, Organising Ability, Power of Expression
@@ -117,6 +122,9 @@ Written Story:
 ${story}
 """
 
+Handwritten Story Image:
+${storyImage ? 'An image of the candidate handwritten story is attached. Read it carefully and use it as the primary written story if typed text is empty.' : 'No handwritten story image provided.'}
+
 Spoken Narration Transcript:
 """
 ${narration || 'No audio narration provided'}
@@ -124,7 +132,7 @@ ${narration || 'No audio narration provided'}
 
 Provide an honest, constructive, expert SSB psychological assessment in the specified JSON format.`;
 
-  return callGemini(prompt, systemInstruction, true);
+  return callGemini(prompt, systemInstruction, true, storyImage);
 }
 
 /**
