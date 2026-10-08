@@ -252,6 +252,24 @@ Candidate sentence: "${sentence}"`;
   return callGemini(prompt, systemInstruction, true);
 }
 
+export async function evaluateWATSheet(words, sheetImage) {
+  const systemInstruction = `You are an SSB psychologist reviewing a photographed handwritten WAT answer sheet.
+The sheet is expected to contain one numbered answer per numbered word. Never infer a sentence for a blank or unreadable entry.
+Return JSON:
+{
+  "answers": [{"number": number, "word": string, "transcription": string, "status": "answered" | "blank" | "unreadable", "score": number, "rating": string, "feedback": string, "betterAlternative": string}],
+  "summary": string,
+  "strengths": [string],
+  "improvementTips": [string]
+}
+Match by the printed number first, not by sentence order. A skipped answer must remain attached to its numbered word.`;
+  const prompt = `Official word sequence:
+${words.map((word, index) => `${index + 1}. ${word.word}`).join('\n')}
+
+Read the numbered handwritten responses from the attached sheet. Evaluate answered sentences for relevance to the stimulus, action orientation, practicality, positivity, originality, and OLQ projection.`;
+  return callGemini(prompt, systemInstruction, true, sheetImage);
+}
+
 /**
  * SRT Reaction Evaluator
  */

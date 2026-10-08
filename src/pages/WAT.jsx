@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Play, RotateCcw, Sparkles, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { FileImage, Sparkles } from 'lucide-react';
 import TimerCircle from '../components/TimerCircle';
 import { WAT_WORDS } from '../data/watWords';
-import { evaluateWATResponse } from '../services/gemini';
+import { evaluateWATResponse, evaluateWATSheet } from '../services/gemini';
+import { supabase } from '../lib/supabase';
 
 import TestPageHeader from '../components/TestPageHeader';
 
@@ -18,8 +19,23 @@ export default function WAT() {
   const [evaluating, setEvaluating] = useState(false);
   const [singleEval, setSingleEval] = useState(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [libraryWords, setLibraryWords] = useState(WAT_WORDS);
+  const [sheetFile, setSheetFile] = useState(null);
+  const [sheetEvaluation, setSheetEvaluation] = useState(null);
+  const [sheetEvaluating, setSheetEvaluating] = useState(false);
+  const [sheetError, setSheetError] = useState('');
 
-  const activeWordObj = WAT_WORDS[currentIndex] || WAT_WORDS[0];
+  const testWords = libraryWords.slice(0, 60);
+  const activeWordObj = testWords[currentIndex] || testWords[0];
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.from('wat_words').select('word, tip').eq('active', true).order('created_at').limit(60)
+      .then(({ data, error }) => {
+        if (mounted && !error && data?.length >= 60) setLibraryWords(data);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   // 15-second countdown timer for official SSB mode
   useEffect(() => {
@@ -35,7 +51,7 @@ export default function WAT() {
     return () => clearInterval(timer);
   }, [isRunning, mode, secondsLeft]);
 
-  const startTest = (selectedMode) => {
+  const startTest = (selectedMode = 'full') => {
     setMode(selectedMode);
     setCurrentIndex(0);
     setResponses({});
@@ -64,13 +80,38 @@ export default function WAT() {
       }
     }
 
-    if (currentIndex + 1 < WAT_WORDS.length) {
+    if (currentIndex + 1 < testWords.length) {
       setCurrentIndex((prev) => prev + 1);
       setCurrentInput('');
       setSecondsLeft(15);
     } else {
       setIsRunning(false);
       setIsCompleted(true);
+    }
+  };
+
+  const readImage = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({
+      mimeType: file.type,
+      data: String(reader.result).split(',')[1]
+    });
+    reader.onerror = () => reject(new Error('Could not read the answer sheet.'));
+    reader.readAsDataURL(file);
+  });
+
+  const reviewSheet = async () => {
+    if (!sheetFile) return;
+    setSheetError('');
+    setSheetEvaluation(null);
+    setSheetEvaluating(true);
+    try {
+      const result = await evaluateWATSheet(testWords, await readImage(sheetFile));
+      setSheetEvaluation(result);
+    } catch (error) {
+      setSheetError(error.message);
+    } finally {
+      setSheetEvaluating(false);
     }
   };
 
@@ -81,7 +122,7 @@ export default function WAT() {
       <TestPageHeader
         stage="Day 2: Psychological Battery"
         title="Word Association Test (WAT)"
-        subtitle="60 words flashed at strict 15-second intervals. Train subconscious projection with instant AI critique."
+        subtitle="60 words flashed at strict 15-second intervals. Write your first natural response for each word."
         badge="Official SSB Drill"
         actions={
           isRunning && mode === 'full' ? (
@@ -103,46 +144,23 @@ export default function WAT() {
               Test Instructions
             </h2>
             <p className="text-sm text-[#9a9780] leading-relaxed">
-              60 words are flashed on screen for <strong className="text-[#c8a84b]">15 seconds each</strong>. Write the first meaningful sentence that flashes in your subconscious mind.
-              Avoid clichés and preachy sentences starting with "One should...", "Always...", or "Never...".
+              {testWords.length} words are flashed one at a time for <strong className="text-[#c8a84b]">15 seconds each</strong>.
+              Read the word, write the first meaningful sentence that comes to mind, and leave the numbered line blank if you miss a word.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div
-              onClick={() => startTest('full')}
-              className="bg-[#12160a] border-2 border-[#3a4520] hover:border-[#c8a84b] p-5 rounded-xl cursor-pointer transition-all space-y-2 group"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-heading text-base font-bold text-[#c8a84b] group-hover:underline">
-                  ⚡ Official SSB Mode
-                </span>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-[#222810] text-[#9a9780]">
-                  15s Automatic
-                </span>
-              </div>
-              <p className="text-xs text-[#9a9780]">
-                Strict 15 seconds per word. Screen advances automatically simulating the psychological test hall conditions.
-              </p>
-            </div>
-
-            <div
-              onClick={() => startTest('practice')}
-              className="bg-[#12160a] border-2 border-[#3a4520] hover:border-[#c8a84b] p-5 rounded-xl cursor-pointer transition-all space-y-2 group"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-heading text-base font-bold text-emerald-400 group-hover:underline flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#c8a84b]" />
-                  <span>🧠 AI Learning Mode</span>
-                </span>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-[#222810] text-emerald-400 font-bold">
-                  With Gemini AI
-                </span>
-              </div>
-              <p className="text-xs text-[#9a9780]">
-                Untimed. Receive instant psychological analysis and OLQ alignment after every single sentence you write.
-              </p>
-            </div>
+          <div className="bg-[#12160a] border border-[#3a4520] rounded-xl p-5 space-y-3">
+            <h3 className="font-heading font-bold text-[#c8a84b]">Before you proceed</h3>
+            <ul className="list-disc list-inside space-y-2 text-sm text-[#9a9780]">
+              <li>Keep your paper ready and number your answer lines from 1 to 60.</li>
+              <li>Write one short, natural, action-oriented sentence for each word.</li>
+              <li>Do not wait for a perfect sentence; write your first practical thought.</li>
+              <li>If you miss a word, leave that numbered line blank. Do not shift later answers upward.</li>
+              <li>Avoid memorised slogans, preachy phrases, and unrealistic claims.</li>
+              <li>After the test, upload a clear photo of the numbered sheet for evaluation.</li>
+            </ul>
+            <button onClick={() => startTest('full')} className="mt-2 w-full sm:w-auto px-8 py-3 rounded-lg bg-[#c8a84b] text-[#12160a] font-heading font-bold uppercase tracking-wider">
+              Proceed to first word
+            </button>
           </div>
         </div>
       )}
@@ -151,10 +169,8 @@ export default function WAT() {
       {isRunning && (
         <div className="bg-[#1b2212] border-2 border-[#c8a84b]/60 rounded-2xl p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between text-xs font-mono text-[#9a9780]">
-            <span>Word #{currentIndex + 1} of {WAT_WORDS.length}</span>
-            <span className="px-2 py-0.5 rounded bg-[#222810] text-[#c8a84b] font-bold">
-              Category: {activeWordObj.category}
-            </span>
+            <span>Word #{currentIndex + 1} of {testWords.length}</span>
+            <span className="text-[#c8a84b]">Write your first response</span>
           </div>
 
           {/* Flash Word Card */}
@@ -227,7 +243,7 @@ export default function WAT() {
           </div>
 
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-            {WAT_WORDS.map((w, idx) => (
+            {testWords.map((w, idx) => (
               <div
                 key={idx}
                 className="bg-[#12160a] border border-[#3a4520] rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
@@ -236,15 +252,35 @@ export default function WAT() {
                   <span className="font-heading font-bold text-sm text-[#c8a84b] mr-2">
                     {idx + 1}. {w.word}
                   </span>
-                  <span className="text-[10px] font-mono text-[#9a9780] px-1.5 py-0.5 rounded bg-[#222810]">
-                    {w.category}
-                  </span>
                 </div>
+
                 <p className="text-[#e8e4d0] font-sans flex-1 sm:text-right">
                   {responses[idx] || <span className="italic text-[#9a9780]">— Left blank —</span>}
                 </p>
               </div>
             ))}
+          </div>
+
+          <div className="border-t border-[#3a4520] pt-5 space-y-3">
+            <div>
+              <h3 className="font-heading font-bold text-[#c8a84b] flex items-center gap-2"><FileImage className="w-4 h-4" /> Evaluate a handwritten answer sheet</h3>
+              <p className="text-xs text-[#9a9780] mt-1">For reliable matching, number your paper 1–60 and leave a blank line for skipped words. Upload a clear JPG, PNG, or WEBP photo.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setSheetFile(event.target.files?.[0] || null)} className="flex-1 bg-[#12160a] border border-[#3a4520] rounded-lg p-2 text-sm" />
+              <button onClick={reviewSheet} disabled={!sheetFile || sheetEvaluating} className="rounded-lg bg-[#c8a84b] text-[#12160a] px-4 py-2 font-bold text-sm disabled:opacity-50">{sheetEvaluating ? 'Reading sheet...' : 'Review sheet'}</button>
+            </div>
+            {sheetError && <p className="text-sm text-red-300">{sheetError}</p>}
+            {sheetEvaluation && <div className="bg-[#12160a] rounded-xl p-4 space-y-3 text-sm">
+              <p className="text-[#e8e4d0]">{sheetEvaluation.summary}</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div><strong className="text-emerald-300">Strengths</strong><ul className="list-disc list-inside text-xs text-[#9a9780]">{(sheetEvaluation.strengths || []).map((item) => <li key={item}>{item}</li>)}</ul></div>
+                <div><strong className="text-[#c8a84b]">Keep in mind</strong><ul className="list-disc list-inside text-xs text-[#9a9780]">{(sheetEvaluation.improvementTips || []).map((item) => <li key={item}>{item}</li>)}</ul></div>
+              </div>
+              <div className="max-h-72 overflow-y-auto space-y-2">
+                {(sheetEvaluation.answers || []).map((answer) => <div key={answer.number} className="border-b border-[#3a4520] pb-2 text-xs"><span className="text-[#c8a84b] font-bold">{answer.number}. {answer.word}</span> <span className="text-[#9a9780]">— {answer.status}</span><p>{answer.transcription || 'No readable sentence.'}</p>{answer.feedback && <p className="text-[#9a9780]">{answer.feedback}</p>}</div>)}
+              </div>
+            </div>}
           </div>
 
           <div className="flex justify-center gap-3 pt-4">

@@ -14,6 +14,8 @@ import SD from './pages/SD';
 import GTOGuide from './pages/GTOGuide';
 import Dashboard from './pages/Dashboard';
 import AdminImages from './pages/AdminImages';
+import AdminWAT from './pages/AdminWAT';
+import Admin from './pages/Admin';
 import ResetPassword from './pages/ResetPassword';
 
 export default function App() {
@@ -39,6 +41,8 @@ export default function App() {
             <Route path="/gto" element={<GTOGuide />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin/images" element={<AdminImages />} />
+            <Route path="/admin/wat" element={<AdminWAT />} />
+            <Route path="/admin" element={<Admin />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Catch-all redirect to Home */}

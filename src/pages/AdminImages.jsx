@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ImagePlus, LogIn, LogOut, Trash2, UploadCloud } from 'lucide-react';
+import { ArrowLeft, ImagePlus, LogIn, LogOut, Trash2, UploadCloud } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import TestPageHeader from '../components/TestPageHeader';
 
@@ -128,7 +129,7 @@ export default function AdminImages() {
   if (!session) {
     return (
       <div className="max-w-md mx-auto px-4 py-12">
-        <TestPageHeader stage="Administration" title="PPDT Image Library" subtitle="Sign in to manage cloud-stored assessment pictures." />
+        <TestPageHeader stage="Administration" title="PPDT Image Library" subtitle="Sign in to manage cloud-stored assessment pictures." actions={<Link to="/admin" className="text-xs text-[#c8a84b] flex items-center gap-2"><ArrowLeft className="w-4 h-4" /> Admin section</Link>} />
         <form onSubmit={signIn} className="bg-[#1b2212] border border-[#3a4520] rounded-2xl p-6 space-y-4">
           <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="Admin email" required className="w-full bg-[#12160a] border border-[#3a4520] rounded-lg p-3 text-sm" />
           <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Password" required className="w-full bg-[#12160a] border border-[#3a4520] rounded-lg p-3 text-sm" />
@@ -141,7 +142,7 @@ export default function AdminImages() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <TestPageHeader stage="Administration" title="PPDT Image Library" subtitle="Upload and organize the cloud picture library used by random assessments." actions={<button onClick={() => supabase.auth.signOut()} className="text-xs text-[#c8a84b] flex items-center gap-2"><LogOut className="w-4 h-4" /> Sign out</button>} />
+      <TestPageHeader stage="Administration" title="PPDT Image Library" subtitle="Upload and organize the cloud picture library used by random assessments." actions={<><Link to="/admin" className="text-xs text-[#c8a84b] flex items-center gap-2"><ArrowLeft className="w-4 h-4" /> Admin section</Link><button onClick={() => supabase.auth.signOut()} className="text-xs text-[#c8a84b] flex items-center gap-2"><LogOut className="w-4 h-4" /> Sign out</button></>} />
       <form onSubmit={uploadImage} className="bg-[#1b2212] border border-[#3a4520] rounded-2xl p-6 space-y-4">
         <div className="md:col-span-2 flex items-center gap-2 text-[#c8a84b] font-bold"><UploadCloud className="w-5 h-5" /> Add picture</div>
         <p className="text-sm text-[#9a9780]">Pictures are intentionally unclassified so users form their own perception.</p>

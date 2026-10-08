@@ -30,6 +30,18 @@ create table if not exists public.ppdt_attempts (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.wat_words (
+  id uuid primary key default gen_random_uuid(),
+  word text not null,
+  normalized_word text generated always as (lower(regexp_replace(trim(word), '\s+', ' ', 'g'))) stored unique,
+  category text not null default 'General',
+  tip text not null default '',
+  active boolean not null default true,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -65,6 +77,7 @@ create trigger on_auth_user_created
 alter table public.profiles enable row level security;
 alter table public.ppdt_images enable row level security;
 alter table public.ppdt_attempts enable row level security;
+alter table public.wat_words enable row level security;
 
 drop policy if exists "Users can read their profile" on public.profiles;
 create policy "Users can read their profile"
@@ -91,6 +104,17 @@ drop policy if exists "Users can create their attempts" on public.ppdt_attempts;
 create policy "Users can create their attempts"
   on public.ppdt_attempts for insert
   with check (auth.uid() = user_id);
+
+drop policy if exists "Anyone can read active WAT words" on public.wat_words;
+create policy "Anyone can read active WAT words"
+  on public.wat_words for select
+  using (active = true or public.is_admin());
+
+drop policy if exists "Admins can manage WAT words" on public.wat_words;
+create policy "Admins can manage WAT words"
+  on public.wat_words for all
+  using (public.is_admin())
+  with check (public.is_admin());
 
 insert into storage.buckets (id, name, public)
 values ('ppdt-images', 'ppdt-images', false)

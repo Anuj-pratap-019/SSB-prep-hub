@@ -1,4 +1,6 @@
-export const WAT_WORDS = [
+import { dedupeWATWords } from '../lib/wat';
+
+const DEFAULT_WAT_WORDS = [
   { word: "Courage", category: "Value", tip: "Action in the face of fear." },
   { word: "Discipline", category: "Value", tip: "Foundation of efficiency and order." },
   { word: "Honesty", category: "Value", tip: "Truthfulness creates genuine respect." },
@@ -61,3 +63,5 @@ export const WAT_WORDS = [
   { word: "Alone", category: "Challenging", tip: "Solitude enables deep introspection." },
   { word: "Crisis", category: "Challenging", tip: "Decisive leadership guides crisis relief." }
 ];
+
+export const WAT_WORDS = dedupeWATWords(DEFAULT_WAT_WORDS);

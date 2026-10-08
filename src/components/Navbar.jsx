@@ -241,7 +241,7 @@ export default function Navbar() {
               <span>Analytics</span>
             </NavLink>
             <NavLink
-              to="/admin/images"
+              to="/admin"
               className={({ isActive }) =>
                 `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-semibold uppercase tracking-wider transition-colors ${
                   isActive
