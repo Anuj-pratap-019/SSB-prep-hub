@@ -3,7 +3,7 @@ import { Eye, Edit3, Mic, Sparkles, AlertCircle, ArrowRight, RotateCcw, Clock, C
 import TimerCircle from '../components/TimerCircle';
 import SpeechRecorder from '../components/SpeechRecorder';
 import AIReviewReport from '../components/AIReviewReport';
-import { PPDT_IMAGES } from '../data/ppdtImages';
+import { supabase } from '../lib/supabase';
 import { evaluatePPDT } from '../services/gemini';
 
 import TestPageHeader from '../components/TestPageHeader';
@@ -18,12 +18,16 @@ const STAGES = {
   EVALUATING: 'EVALUATING',         // AI Analyzing
   RESULT: 'RESULT'                  // Full Dossier
 };
+const PPDT_CYCLE_STORAGE_KEY = 'ssb-prep-hub-ppdt-used-images';
 
 export default function PPDT() {
+  const [images, setImages] = useState([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [stage, setStage] = useState(STAGES.PREPARE);
   const [secondsLeft, setSecondsLeft] = useState(30);
   const [transitionNotice, setTransitionNotice] = useState('');
+  const [imagesLoading, setImagesLoading] = useState(true);
+  const [imageLibraryError, setImageLibraryError] = useState('');
 
   // Form State
   const [characters, setCharacters] = useState({
@@ -41,7 +45,56 @@ export default function PPDT() {
   const [evaluation, setEvaluation] = useState(null);
   const [evalError, setEvalError] = useState(null);
 
-  const activeImage = PPDT_IMAGES[selectedImageIndex] || PPDT_IMAGES[0];
+  const activeImage = images[selectedImageIndex];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCloudImages = async () => {
+      const { data, error } = await supabase
+        .from('ppdt_images')
+        .select('id, title, storage_path')
+        .eq('active', true)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        if (!cancelled) {
+          setImageLibraryError(`Unable to load the PPDT image library: ${error.message}`);
+          setImagesLoading(false);
+        }
+        return;
+      }
+
+      const signedImages = await Promise.all((data || []).map(async (image) => {
+        const { data: signedData, error: signedUrlError } = await supabase.storage
+          .from('ppdt-images')
+          .createSignedUrl(image.storage_path, 3600);
+
+        if (signedUrlError) {
+          throw new Error(`Unable to prepare ${image.title}: ${signedUrlError.message}`);
+        }
+
+        return { ...image, image: signedData.signedUrl };
+      }));
+
+      if (!cancelled) {
+        setImages(signedImages);
+        setImageLibraryError(signedImages.length ? '' : 'No active PPDT pictures are available yet. Please ask an administrator to upload images.');
+        setImagesLoading(false);
+      }
+    };
+
+    loadCloudImages().catch((error) => {
+      if (!cancelled) {
+        setImageLibraryError(error.message || 'Unable to load the PPDT image library.');
+        setImagesLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const playBuzzer = () => {
     const audioContext = new window.AudioContext();
@@ -88,7 +141,18 @@ export default function PPDT() {
   }, [stage, secondsLeft]);
 
   const startTest = () => {
-    setSelectedImageIndex(Math.floor(Math.random() * PPDT_IMAGES.length));
+    if (!images.length) return;
+
+    const usedIds = JSON.parse(window.localStorage.getItem(PPDT_CYCLE_STORAGE_KEY) || '[]');
+    const unusedIndexes = images
+      .map((image, index) => (usedIds.includes(image.id) ? null : index))
+      .filter((index) => index !== null);
+    const availableIndexes = unusedIndexes.length ? unusedIndexes : images.map((_image, index) => index);
+    const nextIndex = availableIndexes[Math.floor(Math.random() * availableIndexes.length)];
+    const nextUsedIds = unusedIndexes.length ? [...usedIds, images[nextIndex].id] : [images[nextIndex].id];
+
+    window.localStorage.setItem(PPDT_CYCLE_STORAGE_KEY, JSON.stringify(nextUsedIds));
+    setSelectedImageIndex(nextIndex);
     setTransitionNotice('');
     setStage(STAGES.IMAGE_OBSERVE);
     setSecondsLeft(30); // 30s official SSB picture exposure
@@ -250,12 +314,19 @@ export default function PPDT() {
             You will have 30 seconds to observe it, followed by the character box, story writing,
             and narration stages.
           </div>
+          {imagesLoading && (
+            <p className="text-sm text-[#c8a84b]">Loading the secure PPDT image library...</p>
+          )}
+          {imageLibraryError && (
+            <p className="text-sm text-red-300">{imageLibraryError}</p>
+          )}
 
           {/* Launch Action */}
           <div className="pt-4 flex justify-end">
             <button
               onClick={startTest}
-              className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#c8a84b] to-[#a8882e] hover:from-[#d8b85b] hover:to-[#b8983e] text-[#12160a] font-heading text-base font-bold uppercase tracking-wider shadow-xl flex items-center gap-2 transform hover:scale-[1.02] transition-all"
+              disabled={imagesLoading || !images.length}
+              className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#c8a84b] to-[#a8882e] hover:from-[#d8b85b] hover:to-[#b8983e] disabled:opacity-40 disabled:hover:scale-100 text-[#12160a] font-heading text-base font-bold uppercase tracking-wider shadow-xl flex items-center gap-2 transform hover:scale-[1.02] transition-all"
             >
               <span>Begin Assessment — Random Picture</span>
               <ArrowRight className="w-5 h-5" />
