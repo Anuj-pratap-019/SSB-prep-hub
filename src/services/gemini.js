@@ -10,11 +10,14 @@ async function callGemini(prompt, systemInstruction = '', jsonMode = true, image
     throw new Error('Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in .env');
   }
 
+  const attachments = image ? (Array.isArray(image) ? image : [image]) : [];
   const payload = {
     contents: [{
       parts: [
         { text: prompt },
-        ...(image ? [{ inlineData: { mimeType: image.mimeType, data: image.data } }] : [])
+        ...attachments.map((attachment) => ({
+          inlineData: { mimeType: attachment.mimeType, data: attachment.data }
+        }))
       ]
     }],
     generationConfig: {
@@ -164,6 +167,64 @@ ${story}
 """`;
 
   return callGemini(prompt, systemInstruction, true);
+}
+
+async function urlToImageData(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Unable to read a TAT picture for assessment.');
+  const blob = await response.blob();
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+  const [header, data] = dataUrl.split(',');
+  return {
+    mimeType: header.match(/data:(.*);base64/)?.[1] || blob.type || 'image/jpeg',
+    data
+  };
+}
+
+export async function evaluateTATBatch(submissions) {
+  const systemInstruction = `You are a senior SSB psychologist assessing a complete 12-card Thematic Apperception Test.
+Assess every card independently and then identify consistent patterns across the candidate's stories.
+The picture attachments are provided in card order, followed by any handwritten story attachments in the same card order.
+Do not invent visual details that are not present. Do not treat the picture filename as a theme.
+Assess realistic action, emotional balance, initiative, responsibility, cooperation, determination,
+effective intelligence, power of expression, social adaptability, self-confidence, and overall OLQ projection.
+Return JSON:
+{
+  "overallScore": number,
+  "overallAssessment": string,
+  "olqs": [{ "name": string, "evidence": string }],
+  "cardAssessments": [
+    { "cardNumber": number, "score": number, "analysis": string, "olqs": [string], "improvement": string }
+  ],
+  "strengths": [string],
+  "improvementSuggestions": [string]
+}`;
+
+  const pictureAttachments = [];
+  const handwrittenAttachments = [];
+  const cardLines = [];
+  for (const submission of submissions) {
+    cardLines.push(`Card ${submission.cardNumber} (${submission.pictureTitle}): Typed story: "${submission.story || 'No typed story.'}"`);
+    if (submission.pictureImage) {
+      pictureAttachments.push(await urlToImageData(submission.pictureImage));
+    }
+    if (submission.storyImage) {
+      handwrittenAttachments.push(submission.storyImage);
+    }
+  }
+
+  const prompt = `Evaluate this complete TAT submission.
+There are 12 cards: cards 1-11 use the attached pictures, and card 12 is blank and has no picture attachment.
+Image attachment order: picture cards 1-11, then handwritten story images in ascending card order.
+${cardLines.join('\n')}
+Use the visual evidence from each picture attachment when assessing its paired story.`;
+
+  return callGemini(prompt, systemInstruction, true, [...pictureAttachments, ...handwrittenAttachments]);
 }
 
 /**
