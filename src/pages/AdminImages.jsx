@@ -4,10 +4,6 @@ import { supabase } from '../lib/supabase';
 import TestPageHeader from '../components/TestPageHeader';
 
 const emptyForm = {
-  title: '',
-  category: 'Uncategorized',
-  tone: 'Challenging',
-  difficulty: 'Medium',
   file: null
 };
 
@@ -74,8 +70,8 @@ export default function AdminImages() {
 
   const uploadImage = async (event) => {
     event.preventDefault();
-    if (!form.file || !form.title.trim()) {
-      setError('Choose an image and enter a title before uploading.');
+    if (!form.file) {
+      setError('Choose an image before uploading.');
       return;
     }
     setError('');
@@ -93,10 +89,7 @@ export default function AdminImages() {
 
     const { error: metadataError } = await supabase.from('ppdt_images').insert({
       storage_path: storagePath,
-      title: form.title.trim(),
-      category: form.category,
-      tone: form.tone,
-      difficulty: form.difficulty,
+      title: form.file.name,
       created_by: session.user.id
     });
     if (metadataError) {
@@ -149,13 +142,10 @@ export default function AdminImages() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <TestPageHeader stage="Administration" title="PPDT Image Library" subtitle="Upload and organize the cloud picture library used by random assessments." actions={<button onClick={() => supabase.auth.signOut()} className="text-xs text-[#c8a84b] flex items-center gap-2"><LogOut className="w-4 h-4" /> Sign out</button>} />
-      <form onSubmit={uploadImage} className="bg-[#1b2212] border border-[#3a4520] rounded-2xl p-6 grid md:grid-cols-2 gap-4">
+      <form onSubmit={uploadImage} className="bg-[#1b2212] border border-[#3a4520] rounded-2xl p-6 space-y-4">
         <div className="md:col-span-2 flex items-center gap-2 text-[#c8a84b] font-bold"><UploadCloud className="w-5 h-5" /> Add picture</div>
-        <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Picture title" required className="bg-[#12160a] border border-[#3a4520] rounded-lg p-3 text-sm" />
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setForm({ ...form, file: event.target.files?.[0] || null })} required className="bg-[#12160a] border border-[#3a4520] rounded-lg p-2 text-sm" />
-        <input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder="Category" className="bg-[#12160a] border border-[#3a4520] rounded-lg p-3 text-sm" />
-        <select value={form.tone} onChange={(event) => setForm({ ...form, tone: event.target.value })} className="bg-[#12160a] border border-[#3a4520] rounded-lg p-3 text-sm"><option>Positive</option><option>Neutral</option><option>Challenging</option><option>Crisis</option></select>
-        <select value={form.difficulty} onChange={(event) => setForm({ ...form, difficulty: event.target.value })} className="bg-[#12160a] border border-[#3a4520] rounded-lg p-3 text-sm"><option>Easy</option><option>Medium</option><option>Hard</option></select>
+        <p className="text-sm text-[#9a9780]">Pictures are intentionally unclassified so users form their own perception.</p>
+        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setForm({ ...form, file: event.target.files?.[0] || null })} required className="block w-full bg-[#12160a] border border-[#3a4520] rounded-lg p-2 text-sm" />
         <button className="rounded-lg bg-[#c8a84b] text-[#12160a] font-bold flex items-center justify-center gap-2"><ImagePlus className="w-4 h-4" /> Upload to Supabase</button>
         {status && <p className="md:col-span-2 text-sm text-emerald-300">{status}</p>}
         {error && <p className="md:col-span-2 text-sm text-red-300">{error}</p>}
@@ -166,7 +156,7 @@ export default function AdminImages() {
             {signedUrls[image.id] ? <img src={signedUrls[image.id]} alt={image.title} className="w-full aspect-[16/10] object-cover" /> : <div className="aspect-[16/10] bg-[#12160a]" />}
             <div className="p-3 space-y-2">
               <h3 className="font-bold text-sm">{image.title}</h3>
-              <p className="text-xs text-[#9a9780]">{image.category} · {image.tone} · {image.difficulty}</p>
+              <p className="text-xs text-[#9a9780]">Unclassified PPDT picture</p>
               <div className="flex items-center justify-between gap-2">
                 <button onClick={() => toggleActive(image)} className={`text-xs px-2 py-1 rounded ${image.active ? 'bg-emerald-900 text-emerald-300' : 'bg-[#12160a] text-[#9a9780]'}`}>{image.active ? 'Active' : 'Inactive'}</button>
                 <button onClick={() => deleteImage(image)} aria-label={`Delete ${image.title}`} className="text-red-300 hover:text-red-200"><Trash2 className="w-4 h-4" /></button>
