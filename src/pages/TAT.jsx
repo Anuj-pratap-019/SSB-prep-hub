@@ -16,13 +16,13 @@ function playBuzzer() {
   const gain = audioContext.createGain();
   oscillator.type = 'square';
   oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + 0.35);
+  oscillator.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + 3);
   gain.gain.setValueAtTime(0.18, audioContext.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 3);
   oscillator.connect(gain);
   gain.connect(audioContext.destination);
   oscillator.start();
-  oscillator.stop(audioContext.currentTime + 0.35);
+  oscillator.stop(audioContext.currentTime + 3);
   oscillator.addEventListener('ended', () => audioContext.close());
 }
 
@@ -123,30 +123,6 @@ export default function TAT() {
 
   const updateStory = (value) => setStories((current) => ({ ...current, [cardIndex]: value }));
 
-  const uploadStory = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Upload a JPG, PNG, or WEBP image of the handwritten story.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const preview = String(reader.result);
-      const [header, data] = preview.split(',');
-      setStoryUploads((current) => ({
-        ...current,
-        [cardIndex]: {
-          data,
-          mimeType: header.match(/data:(.*);base64/)?.[1] || file.type,
-          preview
-        }
-      }));
-      setError('');
-    };
-    reader.readAsDataURL(file);
-  };
-
   const evaluateAll = async () => {
     setEvaluating(true);
     setError('');
@@ -203,21 +179,14 @@ export default function TAT() {
             <TimerCircle totalSeconds={phase === 'observe' ? OBSERVATION_SECONDS : WRITING_SECONDS} remainingSeconds={secondsLeft} size={86} label={phase === 'observe' ? 'Observe' : 'Write'} />
           </div>
           <div className="w-full aspect-[16/9] max-h-[380px] rounded-xl overflow-hidden border-2 border-[#3a4520] bg-black flex items-center justify-center">
-            {activeCard.image ? <img src={activeCard.image} alt="TAT assessment card" className="w-full h-full object-contain" /> : <span className="text-5xl text-[#3a4520]">?</span>}
+            {phase === 'observe' && (activeCard.image ? <img src={activeCard.image} alt="TAT assessment card" className="w-full h-full object-contain" /> : <span className="text-5xl text-[#3a4520]">?</span>)}
           </div>
           {phase === 'write' && (
             <textarea value={stories[cardIndex] || ''} onChange={(event) => updateStory(event.target.value)} rows={8} placeholder="Write your story: past background → present action → future outcome..." className="w-full bg-[#12160a] border border-[#3a4520] rounded-xl p-4 text-sm text-[#e8e4d0] leading-relaxed" />
           )}
-          <div className="flex items-center justify-between text-xs text-[#9a9780]">
-            <span><Volume2 className="inline w-4 h-4 mr-1" />Buzzer only — the next card starts immediately.</span>
-            {phase === 'write' && storyUploads[cardIndex] && <span className="text-emerald-300">Handwritten story attached</span>}
+          <div className="text-xs text-[#9a9780]">
+            <Volume2 className="inline w-4 h-4 mr-1" />Buzzer marks the transition; the next card starts immediately.
           </div>
-          {phase === 'write' && (
-            <label className="inline-flex items-center gap-2 text-xs text-[#c8a84b] cursor-pointer">
-              <Upload className="w-4 h-4" /> Upload handwritten story
-              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadStory} className="hidden" />
-            </label>
-          )}
         </div>
       )}
 
@@ -229,6 +198,28 @@ export default function TAT() {
             <div key={card.id} className="border border-[#3a4520] rounded-xl p-3">
               <span className="text-xs font-mono text-[#c8a84b]">CARD {index + 1} — {card.title}</span>
               <textarea value={stories[index] || ''} onChange={(event) => setStories((current) => ({ ...current, [index]: event.target.value }))} rows={3} className="mt-2 w-full bg-[#12160a] border border-[#3a4520] rounded-lg p-3 text-sm" />
+              <label className="mt-2 inline-flex items-center gap-2 text-xs text-[#c8a84b] cursor-pointer">
+                <Upload className="w-4 h-4" /> Upload handwritten story for Card {index + 1}
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file || !file.type.startsWith('image/')) {
+                    setError('Upload a JPG, PNG, or WEBP image of the handwritten story.');
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const preview = String(reader.result);
+                    const [header, data] = preview.split(',');
+                    setStoryUploads((current) => ({
+                      ...current,
+                      [index]: { data, mimeType: header.match(/data:(.*);base64/)?.[1] || file.type, preview }
+                    }));
+                    setError('');
+                  };
+                  reader.readAsDataURL(file);
+                }} className="hidden" />
+              </label>
+              {storyUploads[index] && <p className="mt-1 text-xs text-emerald-300">Handwritten story attached.</p>}
             </div>
           ))}
           {error && <p className="text-sm text-red-300">{error}</p>}
@@ -241,7 +232,15 @@ export default function TAT() {
           <h2 className="font-heading text-xl text-[#c8a84b] font-bold">TAT AI Dossier</h2>
           <p className="text-sm text-[#e8e4d0]">{result.overallAssessment}</p>
           <p className="text-sm text-[#9a9780]">Overall score: <strong className="text-[#c8a84b]">{result.overallScore}/10</strong></p>
-          <div className="grid md:grid-cols-2 gap-3">{(result.cardAssessments || []).map((item) => <div key={item.cardNumber} className="bg-[#12160a] rounded-lg p-3 text-xs"><strong className="text-[#c8a84b]">Card {item.cardNumber}: {item.score}/10</strong><p className="mt-1">{item.analysis}</p><p className="mt-1 text-emerald-300">OLQs: {(item.olqs || []).join(', ')}</p></div>)}</div>
+          <div className="grid md:grid-cols-2 gap-3">{(result.cardAssessments || []).map((item) => <div key={item.cardNumber} className="bg-[#12160a] rounded-lg p-3 text-xs"><strong className="text-[#c8a84b]">Card {item.cardNumber}: {item.score}/10</strong><p className="mt-1">{item.analysis}</p><p className="mt-1 text-emerald-300">OLQs: {(item.olqs || []).join(', ')}</p>{item.improvement && <p className="mt-2 text-amber-200"><strong>Improve:</strong> {item.improvement}</p>}</div>)}</div>
+          {result.improvementSuggestions?.length > 0 && (
+            <div className="bg-[#12160a] rounded-lg p-4 text-sm">
+              <strong className="text-[#c8a84b]">What to improve next:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1 text-[#e8e4d0]">
+                {result.improvementSuggestions.map((suggestion) => <li key={suggestion}>{suggestion}</li>)}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>

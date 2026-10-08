@@ -102,13 +102,13 @@ export default function PPDT() {
     const gain = audioContext.createGain();
     oscillator.type = 'square';
     oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + 0.35);
+    oscillator.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + 3);
     gain.gain.setValueAtTime(0.18, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 3);
     oscillator.connect(gain);
     gain.connect(audioContext.destination);
     oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.35);
+    oscillator.stop(audioContext.currentTime + 3);
     oscillator.addEventListener('ended', () => audioContext.close());
   };
 
@@ -530,30 +530,6 @@ export default function PPDT() {
             />
           </div>
 
-          <div className="rounded-xl border border-dashed border-[#c8a84b]/60 bg-[#12160a] p-4 space-y-3">
-            <div>
-              <label htmlFor="handwritten-story" className="text-xs font-mono uppercase text-[#c8a84b] font-bold block">
-                Prefer handwriting?
-              </label>
-              <p className="text-xs text-[#9a9780] mt-1">
-                Upload a clear photo of your handwritten story. Gemini will read it for the AI dossier.
-              </p>
-            </div>
-            <input
-              id="handwritten-story"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleStoryImageChange}
-              className="block w-full text-xs text-[#9a9780] file:mr-3 file:rounded-lg file:border-0 file:bg-[#c8a84b] file:px-3 file:py-2 file:font-bold file:text-[#12160a] hover:file:bg-[#d8b85b]"
-            />
-            {storyImage && (
-              <div className="flex items-center gap-3 text-xs text-emerald-300">
-                <img src={storyImage.preview} alt="Handwritten story preview" className="h-16 w-24 rounded object-cover border border-[#3a4520]" />
-                <span>Handwritten story attached for assessment.</span>
-              </div>
-            )}
-          </div>
-
           <div className="flex justify-between items-center pt-2">
             <span className="text-xs text-[#9a9780] font-mono">
               When time is up, start narration yourself when you are ready.
@@ -596,6 +572,25 @@ export default function PPDT() {
             <p className="text-[#9a9780] italic leading-relaxed line-clamp-3">
               "{storyText || 'No written story.'}"
             </p>
+          </div>
+
+          <div className="rounded-xl border border-dashed border-[#c8a84b]/60 bg-[#12160a] p-4 space-y-3">
+            <div>
+              <label htmlFor="handwritten-story" className="text-xs font-mono uppercase text-[#c8a84b] font-bold block">
+                Upload handwritten story (optional)
+              </label>
+              <p className="text-xs text-[#9a9780] mt-1">
+                Upload it now for this picture before submitting the AI dossier.
+              </p>
+            </div>
+            <input
+              id="handwritten-story"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleStoryImageChange}
+              className="block w-full text-xs text-[#9a9780] file:mr-3 file:rounded-lg file:border-0 file:bg-[#c8a84b] file:px-3 file:py-2 file:font-bold file:text-[#12160a] hover:file:bg-[#d8b85b]"
+            />
+            {storyImage && <span className="text-xs text-emerald-300">Handwritten story attached for assessment.</span>}
           </div>
 
           {/* Speech Recorder */}
