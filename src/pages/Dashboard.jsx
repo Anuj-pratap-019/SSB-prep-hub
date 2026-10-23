@@ -1,9 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Award, Shield, CheckCircle, TrendingUp, Copy, Check, Sparkles, BarChart2 } from 'lucide-react';
 import { OLQS } from '../data/olqs';
+import { getEvaluationHistory } from '../lib/evaluationHistory';
 
 export default function Dashboard({ setActiveTab }) {
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    const refreshHistory = () => getEvaluationHistory().then(setHistory).catch(console.error);
+    refreshHistory();
+    window.addEventListener('ssb-evaluation-saved', refreshHistory);
+    window.addEventListener('storage', refreshHistory);
+    return () => {
+      window.removeEventListener('ssb-evaluation-saved', refreshHistory);
+      window.removeEventListener('storage', refreshHistory);
+    };
+  }, []);
 
   const resumeBullet = `SSB Prep Hub — AI-Powered Armed Forces Evaluation Platform (React 19, Vite, Gemini AI, Web Speech API)
 • Architected a full-stack psychometric evaluation platform simulating 5-day SSB (Services Selection Board) interview tests.
@@ -17,12 +30,19 @@ export default function Dashboard({ setActiveTab }) {
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const factors = [
-    { name: 'Factor 1: Planning & Organising (Mind)', score: 85, color: 'bg-emerald-500', count: 4 },
-    { name: 'Factor 2: Social Adjustment (Heart)', score: 90, color: 'bg-[#c8a84b]', count: 3 },
-    { name: 'Factor 3: Social Effectiveness (Influence)', score: 78, color: 'bg-amber-500', count: 5 },
-    { name: 'Factor 4: Dynamic Qualities (Guts)', score: 82, color: 'bg-sky-500', count: 3 },
-  ];
+  const latestByTest = useMemo(() => (
+    history.reduce((latest, entry) => {
+      if (!latest[entry.testType]) latest[entry.testType] = entry;
+      return latest;
+    }, {})
+  ), [history]);
+  const scoreAsPercentage = (entry) => {
+    if (!entry || entry.score === null) return null;
+    return Math.round((entry.score <= 5 ? entry.score / 5 : entry.score / 10) * 100);
+  };
+  const readiness = history.length
+    ? Math.round(history.reduce((sum, entry) => sum + (scoreAsPercentage(entry) || 0), 0) / history.length)
+    : null;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
@@ -41,30 +61,60 @@ export default function Dashboard({ setActiveTab }) {
         <div className="flex items-center gap-2">
           <div className="px-4 py-2 rounded-xl bg-[#1b2212] border border-[#c8a84b] text-center">
             <span className="text-[10px] font-mono text-[#9a9780] block uppercase">Readiness Index</span>
-            <span className="font-heading text-xl font-bold text-emerald-400">84% Stage 1 Pass</span>
+            <span className="font-heading text-xl font-bold text-emerald-400">
+              {readiness === null ? 'No attempts yet' : `${readiness}% current readiness`}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 4 Factor Breakdown */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {factors.map((f, idx) => (
-          <div key={idx} className="bg-[#1b2212] border border-[#3a4520] rounded-xl p-4 space-y-2">
-            <span className="text-[11px] font-mono text-[#9a9780] block font-bold truncate">
-              {f.name}
-            </span>
+      {/* Latest score by test */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        {['OIR', 'PPDT', 'TAT', 'WAT', 'SRT', 'SD'].map((testType) => {
+          const entry = latestByTest[testType];
+          const percentage = scoreAsPercentage(entry);
+          return (
+          <div key={testType} className="bg-[#1b2212] border border-[#3a4520] rounded-xl p-4 space-y-2">
+            <span className="text-[11px] font-mono text-[#9a9780] block font-bold">{testType}</span>
             <div className="flex items-baseline justify-between">
-              <span className="font-heading text-2xl font-bold text-[#e8e4d0]">{f.score}%</span>
-              <span className="text-xs font-mono text-[#c8a84b]">{f.count} Qualities</span>
+              <span className="font-heading text-2xl font-bold text-[#e8e4d0]">{percentage === null ? '—' : `${percentage}%`}</span>
+              <span className="text-xs font-mono text-[#c8a84b]">{entry ? 'Latest' : 'Not attempted'}</span>
             </div>
             <div className="w-full bg-[#12160a] h-2 rounded-full overflow-hidden">
               <div
-                className={`${f.color} h-full rounded-full transition-all duration-1000`}
-                style={{ width: `${f.score}%` }}
+                className="bg-emerald-500 h-full rounded-full transition-all duration-1000"
+                style={{ width: `${percentage || 0}%` }}
               />
             </div>
           </div>
-        ))}
+          );
+        })}
+      </div>
+
+      <div className="bg-[#1b2212] border border-[#3a4520] rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-heading text-xl font-bold text-[#e8e4d0]">Evaluation History</h2>
+            <p className="text-xs text-[#9a9780] mt-1">Your completed AI assessments are saved on this device.</p>
+          </div>
+          <span className="text-xs font-mono text-[#c8a84b]">{history.length} attempt{history.length === 1 ? '' : 's'}</span>
+        </div>
+        {history.length === 0 ? (
+          <p className="text-sm text-[#9a9780]">Complete a PPDT, TAT, WAT, SRT, or SD assessment to start tracking your progress.</p>
+        ) : (
+          <div className="space-y-2">
+            {history.slice(0, 10).map((entry) => (
+              <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#12160a] border border-[#3a4520] rounded-lg px-4 py-3">
+                <div>
+                  <span className="font-heading font-bold text-[#c8a84b]">{entry.testType}</span>
+                  <span className="text-xs text-[#9a9780] ml-3">{new Date(entry.createdAt).toLocaleString()}</span>
+                  {entry.result && <p className="text-xs text-[#e8e4d0] mt-1 line-clamp-1">{entry.result}</p>}
+                </div>
+                <span className="font-heading font-bold text-emerald-400">{scoreAsPercentage(entry) === null ? 'Reviewed' : `${scoreAsPercentage(entry)}%`}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Resume Pitch Box (Special Feature for Final Year B.Tech Student!) */}

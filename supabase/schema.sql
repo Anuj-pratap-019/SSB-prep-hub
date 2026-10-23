@@ -30,6 +30,16 @@ create table if not exists public.ppdt_attempts (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.evaluation_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  test_type text not null,
+  score numeric,
+  result text not null default '',
+  summary text not null default '',
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.wat_words (
   id uuid primary key default gen_random_uuid(),
   word text not null,
@@ -77,6 +87,7 @@ create trigger on_auth_user_created
 alter table public.profiles enable row level security;
 alter table public.ppdt_images enable row level security;
 alter table public.ppdt_attempts enable row level security;
+alter table public.evaluation_history enable row level security;
 alter table public.wat_words enable row level security;
 
 drop policy if exists "Users can read their profile" on public.profiles;
@@ -103,6 +114,16 @@ create policy "Users can read their attempts"
 drop policy if exists "Users can create their attempts" on public.ppdt_attempts;
 create policy "Users can create their attempts"
   on public.ppdt_attempts for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can read their evaluation history" on public.evaluation_history;
+create policy "Users can read their evaluation history"
+  on public.evaluation_history for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can create their evaluation history" on public.evaluation_history;
+create policy "Users can create their evaluation history"
+  on public.evaluation_history for insert
   with check (auth.uid() = user_id);
 
 drop policy if exists "Anyone can read active WAT words" on public.wat_words;

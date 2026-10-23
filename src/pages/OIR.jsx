@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Award, CheckCircle, XCircle, Clock, RotateCcw, ArrowRight } from 'lucide-react';
 import TimerCircle from '../components/TimerCircle';
 import { OIR_QUESTIONS } from '../data/oirQuestions';
+import { saveEvaluation } from '../lib/evaluationHistory';
 
 import TestPageHeader from '../components/TestPageHeader';
 
@@ -44,6 +45,18 @@ export default function OIR() {
     setIsSubmitted(false);
     setCurrentQIndex(0);
     setSecondsLeft(900);
+  };
+
+  const submitTest = () => {
+    const score = calculateScore();
+    const grade = getOIRGrade(score, OIR_QUESTIONS.length);
+    saveEvaluation({
+      testType: 'OIR',
+      score: (score / OIR_QUESTIONS.length) * 10,
+      result: grade.grade,
+      summary: grade.desc
+    });
+    setIsSubmitted(true);
   };
 
   return (
@@ -128,7 +141,7 @@ export default function OIR() {
               </button>
             ) : (
               <button
-                onClick={() => setIsSubmitted(true)}
+                onClick={submitTest}
                 className="px-6 py-2.5 rounded-lg bg-[#c8a84b] hover:bg-[#a8882e] text-[#12160a] text-xs font-heading font-bold uppercase tracking-wider shadow-lg"
               >
                 Submit Mock Test

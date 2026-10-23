@@ -1,9 +1,25 @@
 // ── Gemini AI Service for SSB Evaluation ──
-// Supports multi-model fallback: gemini-flash-latest -> gemini-3.5-flash-lite
+// Uses stable Gemini API model IDs with a lower-cost fallback.
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const PRIMARY_MODEL = 'gemini-flash-latest';
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
+const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const REQUEST_TIMEOUT_MS = 45000;
+
+function describeApiFailure(status, errorMessage) {
+  if (status === 400) {
+    return `Gemini rejected the request (${status}). Check the model/API configuration${errorMessage ? `: ${errorMessage}` : '.'}`;
+  }
+  if (status === 401 || status === 403) {
+    return `Gemini rejected the API key (${status}). Check that VITE_GEMINI_API_KEY is the correct Gemini API key and that its Generative Language API access is enabled.`;
+  }
+  if (status === 429) {
+    return 'Gemini API quota or rate limit reached (429). Check the project quota and billing limits in Google AI Studio/Google Cloud.';
+  }
+  if (status >= 500) {
+    return `Gemini service is temporarily unavailable (${status}). Please try again shortly.`;
+  }
+  return `Gemini request failed (${status})${errorMessage ? `: ${errorMessage}` : '.'}`;
+}
 
 async function callGemini(prompt, systemInstruction = '', jsonMode = true, image = null) {
   if (!API_KEY) {
@@ -36,18 +52,26 @@ async function callGemini(prompt, systemInstruction = '', jsonMode = true, image
     payload.generationConfig.responseMimeType = 'application/json';
   }
 
-  // Try primary model, fallback on failure
-  for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
+  const failures = [];
+
+  // Try the primary model, then the lower-cost fallback.
+  for (const model of MODELS) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+      clearTimeout(timeout);
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        const errorMessage = errData?.error?.message;
+        failures.push(`${model}: ${describeApiFailure(res.status, errorMessage)}`);
         console.warn(`Model ${model} returned ${res.status}:`, errData);
         continue; // Try fallback
       }
@@ -67,11 +91,22 @@ async function callGemini(prompt, systemInstruction = '', jsonMode = true, image
       }
       return rawText;
     } catch (err) {
+      const message = err.name === 'AbortError'
+        ? `Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds.`
+        : (err.message || 'Network request failed.');
+      failures.push(`${model}: ${message}`);
       console.warn(`Attempt with ${model} failed:`, err);
     }
   }
 
-  throw new Error('All Gemini API models failed. Please verify your internet connection or API quota.');
+  const hasNetworkFailure = failures.length > 0 && failures.every((failure) => (
+    failure.includes('Failed to fetch') || failure.includes('NetworkError') || failure.includes('timed out')
+  ));
+  if (hasNetworkFailure) {
+    throw new Error('Unable to reach Gemini API. Check the internet connection, browser network permissions, or an ad blocker, then try again.');
+  }
+
+  throw new Error(`Gemini assessment failed. ${failures.join(' ')}`);
 }
 
 /**
@@ -122,11 +157,11 @@ Character Box Details:
 
 Written Story:
 """
-${story}
+${story || 'No typed story provided. Use the attached handwritten story image as the primary story source.'}
 """
 
 Handwritten Story Image:
-${storyImage ? 'An image of the candidate handwritten story is attached. Read it carefully and use it as the primary written story if typed text is empty.' : 'No handwritten story image provided.'}
+${storyImage ? 'An image of the candidate handwritten story is attached. Read it carefully and use it as the primary written story, especially when no typed story is provided.' : 'No handwritten story image provided.'}
 
 Spoken Narration Transcript:
 """

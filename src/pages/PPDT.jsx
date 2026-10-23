@@ -5,6 +5,7 @@ import SpeechRecorder from '../components/SpeechRecorder';
 import AIReviewReport from '../components/AIReviewReport';
 import { supabase } from '../lib/supabase';
 import { evaluatePPDT } from '../services/gemini';
+import { saveEvaluation } from '../lib/evaluationHistory';
 
 import TestPageHeader from '../components/TestPageHeader';
 
@@ -193,7 +194,7 @@ export default function PPDT() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       setEvalError('Please upload a JPG, PNG, or WEBP image of your handwritten story.');
       return;
     }
@@ -201,9 +202,21 @@ export default function PPDT() {
     const reader = new FileReader();
     reader.onload = () => {
       const result = String(reader.result);
-      const [header, data] = result.split(',');
-      setStoryImage({ data, mimeType: header.match(/data:(.*);base64/)?.[1] || file.type, preview: result });
-      setEvalError(null);
+      const image = new Image();
+      image.onload = () => {
+        const maxDimension = 1600;
+        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.82);
+        const [, data] = compressed.split(',');
+        setStoryImage({ data, mimeType: 'image/jpeg', preview: compressed });
+        setEvalError(null);
+      };
+      image.onerror = () => setEvalError('The handwritten story image could not be decoded.');
+      image.src = result;
     };
     reader.onerror = () => setEvalError('The handwritten story image could not be read.');
     reader.readAsDataURL(file);
@@ -214,11 +227,17 @@ export default function PPDT() {
     setEvalError(null);
     try {
       const res = await evaluatePPDT({
-        story: storyText || 'Candidate did not complete story in allotted time.',
+        story: storyText,
         characters,
         actionSummary,
         narration: narrationTranscript,
         storyImage
+      });
+      await saveEvaluation({
+        testType: 'PPDT',
+        score: res.overallScore,
+        result: res.verdict,
+        summary: res.heroAnalysis?.comment || res.narrationFeedback || ''
       });
       setEvaluation(res);
       setStage(STAGES.RESULT);

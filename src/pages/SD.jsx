@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Sparkles, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { evaluateSelfDescription } from '../services/gemini';
+import { saveEvaluation } from '../lib/evaluationHistory';
 import TestPageHeader from '../components/TestPageHeader';
 
 export default function SD() {
@@ -20,6 +21,12 @@ export default function SD() {
     setResult(null);
     try {
       const res = await evaluateSelfDescription(sd);
+      await saveEvaluation({
+        testType: 'SD',
+        score: res.congruenceScore,
+        result: res.overallVerdict,
+        summary: res.personalitySummary || ''
+      });
       setResult(res);
     } catch (err) {
       console.warn('SD eval error:', err);

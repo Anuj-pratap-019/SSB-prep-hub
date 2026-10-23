@@ -3,6 +3,7 @@ import { Brain, Sparkles, CheckCircle2, Clock, AlertTriangle, ArrowRight, Shield
 import TimerCircle from '../components/TimerCircle';
 import { SRT_SCENARIOS } from '../data/srtScenarios';
 import { evaluateSRTReaction } from '../services/gemini';
+import { saveEvaluation } from '../lib/evaluationHistory';
 
 import TestPageHeader from '../components/TestPageHeader';
 
@@ -23,6 +24,12 @@ export default function SRT() {
     setAiResult(null);
     try {
       const res = await evaluateSRTReaction(activeScenario.situation, reactionInput.trim());
+      await saveEvaluation({
+        testType: 'SRT',
+        score: res.score,
+        result: res.verdict,
+        summary: res.feedback || res.analysis || ''
+      });
       setAiResult(res);
     } catch (err) {
       console.warn('SRT evaluation error:', err);

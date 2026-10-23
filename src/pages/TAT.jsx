@@ -4,6 +4,7 @@ import TimerCircle from '../components/TimerCircle';
 import TestPageHeader from '../components/TestPageHeader';
 import { supabase } from '../lib/supabase';
 import { evaluateTATBatch } from '../services/gemini';
+import { saveEvaluation } from '../lib/evaluationHistory';
 
 const TOTAL_CARDS = 12;
 const OBSERVATION_SECONDS = 30;
@@ -135,6 +136,12 @@ export default function TAT() {
         storyImage: storyUploads[index] || null
       }));
       const evaluation = await evaluateTATBatch(submissions);
+      await saveEvaluation({
+        testType: 'TAT',
+        score: evaluation.overallScore,
+        result: evaluation.overallAssessment,
+        summary: evaluation.improvementSuggestions?.[0] || ''
+      });
       setResult(evaluation);
       setPhase('result');
     } catch (evaluationError) {

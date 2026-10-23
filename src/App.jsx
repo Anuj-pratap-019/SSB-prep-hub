@@ -17,11 +17,13 @@ import AdminImages from './pages/AdminImages';
 import AdminWAT from './pages/AdminWAT';
 import Admin from './pages/Admin';
 import ResetPassword from './pages/ResetPassword';
+import AuthGate from './components/AuthGate';
 
 export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <AuthGate>
       <div className="min-h-screen flex flex-col bg-transparent text-[#e8e4d0] selection:bg-[#c8a84b] selection:text-[#12160a]">
         
         {/* Navigation Bar */}
@@ -53,6 +55,7 @@ export default function App() {
         {/* Footer */}
         <Footer />
       </div>
+      </AuthGate>
     </BrowserRouter>
   );
 }

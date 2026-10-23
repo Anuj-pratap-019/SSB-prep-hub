@@ -3,6 +3,7 @@ import { FileImage, Sparkles } from 'lucide-react';
 import TimerCircle from '../components/TimerCircle';
 import { WAT_WORDS } from '../data/watWords';
 import { evaluateWATResponse, evaluateWATSheet } from '../services/gemini';
+import { saveEvaluation } from '../lib/evaluationHistory';
 import { supabase } from '../lib/supabase';
 
 import TestPageHeader from '../components/TestPageHeader';
@@ -72,6 +73,12 @@ export default function WAT() {
       setEvaluating(true);
       try {
         const res = await evaluateWATResponse(activeWordObj.word, currentInput.trim());
+        await saveEvaluation({
+          testType: 'WAT',
+          score: res.score,
+          result: res.rating,
+          summary: res.critique || ''
+        });
         setSingleEval(res);
       } catch (err) {
         console.warn('WAT single eval error:', err);
@@ -107,6 +114,14 @@ export default function WAT() {
     setSheetEvaluating(true);
     try {
       const result = await evaluateWATSheet(testWords, await readImage(sheetFile));
+      await saveEvaluation({
+        testType: 'WAT',
+        score: result.answers?.length
+          ? result.answers.reduce((total, answer) => total + (Number(answer.score) || 0), 0) / result.answers.length
+          : null,
+        result: 'Handwritten sheet reviewed',
+        summary: result.summary || result.improvementTips?.[0] || ''
+      });
       setSheetEvaluation(result);
     } catch (error) {
       setSheetError(error.message);

@@ -14,12 +14,18 @@ import {
   X,
   Compass
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null); // 'stage1' | 'stage2' | 'stage3' | null
+  const [userEmail, setUserEmail] = useState('');
   const location = useLocation();
   const navRef = useRef(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email || ''));
+  }, []);
 
   // Close menus on route change or outside click
   useEffect(() => {
@@ -261,6 +267,9 @@ export default function Navbar() {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[#9a9780]">AI Engine: <strong className="text-emerald-400 font-semibold">Active</strong></span>
             </div>
+            <button onClick={() => supabase.auth.signOut()} className="hidden sm:inline-flex px-3 py-1.5 rounded-lg border border-[#3a4520] text-[11px] font-mono text-[#c8a84b] hover:bg-[#202812]">
+              {userEmail ? `Sign out (${userEmail})` : 'Sign out'}
+            </button>
 
             {/* Mobile Hamburger */}
             <button
