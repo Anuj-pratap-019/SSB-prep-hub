@@ -20,11 +20,23 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null); // 'stage1' | 'stage2' | 'stage3' | null
   const [userEmail, setUserEmail] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const navRef = useRef(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email || ''));
+    const loadAccount = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUserEmail(data.user?.email || '');
+      if (!data.user) return;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      setIsAdmin(profile?.role === 'admin');
+    };
+    loadAccount();
   }, []);
 
   // Close menus on route change or outside click
@@ -246,7 +258,7 @@ export default function Navbar() {
               <BarChart3 className="w-3.5 h-3.5 text-[#c8a84b]" />
               <span>Analytics</span>
             </NavLink>
-            <NavLink
+            {isAdmin && <NavLink
               to="/admin"
               className={({ isActive }) =>
                 `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-semibold uppercase tracking-wider transition-colors ${
@@ -258,7 +270,7 @@ export default function Navbar() {
             >
               <Shield className="w-3.5 h-3.5 text-[#c8a84b]" />
               <span>Admin</span>
-            </NavLink>
+            </NavLink>}
           </nav>
 
           {/* Right Status Pill & Mobile Menu Toggle */}

@@ -18,6 +18,7 @@ import AdminWAT from './pages/AdminWAT';
 import Admin from './pages/Admin';
 import ResetPassword from './pages/ResetPassword';
 import AuthGate from './components/AuthGate';
+import AdminGate from './components/AdminGate';
 
 export default function App() {
   return (
@@ -42,9 +43,9 @@ export default function App() {
             <Route path="/pi" element={<PIMock />} />
             <Route path="/gto" element={<GTOGuide />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/admin/images" element={<AdminImages />} />
-            <Route path="/admin/wat" element={<AdminWAT />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/images" element={<AdminGate><AdminImages /></AdminGate>} />
+            <Route path="/admin/wat" element={<AdminGate><AdminWAT /></AdminGate>} />
+            <Route path="/admin" element={<AdminGate><Admin /></AdminGate>} />
             <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Catch-all redirect to Home */}
