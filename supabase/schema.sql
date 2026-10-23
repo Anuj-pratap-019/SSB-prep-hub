@@ -48,6 +48,11 @@ create table if not exists public.lecturette_topics (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists lecturette_topics_normalized_unique
+  on public.lecturette_topics (
+    lower(regexp_replace(trim(topic), '[^[:alnum:][:space:]]+', ' ', 'g'))
+  );
+
 create table if not exists public.lecturette_attempts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,

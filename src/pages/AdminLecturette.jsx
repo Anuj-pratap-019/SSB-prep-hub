@@ -22,6 +22,12 @@ export default function AdminLecturette() {
       .trim())
     .filter(Boolean);
 
+  const normalizeTopic = (value) => value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
   const loadTopics = async () => {
     const { data, error: loadError } = await supabase.from('lecturette_topics').select('*').order('created_at', { ascending: false });
     if (loadError) setError(loadError.message);
@@ -30,8 +36,23 @@ export default function AdminLecturette() {
   useEffect(() => { loadTopics(); }, []);
 
   const addTopics = async (values) => {
-    const unique = [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-    if (!unique.length) throw new Error('Enter at least one lecturette topic.');
+    const requested = [...new Map(
+      values
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .map((topic) => [normalizeTopic(topic), topic])
+    ).values()].filter((topic) => normalizeTopic(topic));
+    if (!requested.length) throw new Error('Enter at least one lecturette topic.');
+    const { data: existing, error: existingError } = await supabase
+      .from('lecturette_topics')
+      .select('topic');
+    if (existingError) throw new Error(existingError.message);
+    const existingKeys = new Set((existing || []).map((item) => normalizeTopic(item.topic)));
+    const unique = requested.filter((topic) => !existingKeys.has(normalizeTopic(topic)));
+    if (!unique.length) {
+      setStatus('All submitted topics already exist. No duplicates were added.');
+      return;
+    }
     const { error: insertError } = await supabase
       .from('lecturette_topics')
       .upsert(unique.map((topic) => ({ topic })), { onConflict: 'topic', ignoreDuplicates: true });

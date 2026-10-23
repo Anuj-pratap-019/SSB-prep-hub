@@ -306,7 +306,7 @@ Read the numbered handwritten responses from the attached sheet. Evaluate answer
 }
 
 export async function extractLecturetteTopics(document) {
-  const prompt = `Extract exactly four lecturette topics from the attached image or document. Return JSON only in this format: {"topics":["topic 1","topic 2","topic 3","topic 4"]}. Do not add explanations.`;
+  const prompt = `Extract every distinct lecturette topic visible in the attached image or document. The source may contain any number of topics, including more than four, and topics may be numbered or listed with bullets. Preserve each topic as a separate concise string, remove list numbering and bullet markers, do not invent or merge topics, and do not omit any readable topic. Return JSON only in this format: {"topics":["topic 1","topic 2","topic 3"]}. Return an empty array only when no topic can be read.`;
   return callGemini(prompt, 'You extract clearly printed lecturette topics for an SSB content library.', true, document);
 }
 
