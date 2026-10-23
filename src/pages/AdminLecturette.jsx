@@ -11,6 +11,16 @@ export default function AdminLecturette() {
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const parseTopics = (value) => value
+    .replace(/\r/g, '')
+    .split(/\n+/)
+    .flatMap((line) => line.split(/(?=(?:^|\s)\d+\s*[.)\-:]\s*)/))
+    .map((topic) => topic
+      .replace(/^\s*(?:\d+\s*[.)\-:]|[-*•])\s*/, '')
+      .trim())
+    .filter(Boolean);
 
   const loadTopics = async () => {
     const { data, error: loadError } = await supabase.from('lecturette_topics').select('*').order('created_at', { ascending: false });
@@ -21,8 +31,10 @@ export default function AdminLecturette() {
 
   const addTopics = async (values) => {
     const unique = [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-    if (!unique.length) return;
-    const { error: insertError } = await supabase.from('lecturette_topics').insert(unique.map((topic) => ({ topic })));
+    if (!unique.length) throw new Error('Enter at least one lecturette topic.');
+    const { error: insertError } = await supabase
+      .from('lecturette_topics')
+      .upsert(unique.map((topic) => ({ topic })), { onConflict: 'topic', ignoreDuplicates: true });
     if (insertError) throw new Error(insertError.message);
     setStatus(`${unique.length} topic${unique.length === 1 ? '' : 's'} added.`);
     setText('');
@@ -32,12 +44,16 @@ export default function AdminLecturette() {
   const uploadText = async (event) => {
     event.preventDefault();
     setError('');
-    try { await addTopics(text.split(/\r?\n/)); } catch (err) { setError(err.message); }
+    setStatus('');
+    setSaving(true);
+    try { await addTopics(parseTopics(text)); } catch (err) { setError(err.message); } finally { setSaving(false); }
   };
 
   const extractFromFile = async () => {
     if (!file) return;
     setError('');
+    setStatus('');
+    setSaving(true);
     try {
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
@@ -61,11 +77,11 @@ export default function AdminLecturette() {
         await addTopics(result.topics || []);
       } else if (file.type === 'text/plain' || file.name.endsWith('.csv')) {
         const content = await file.text();
-        await addTopics(content.split(/\r?\n/).map((line) => line.replace(/^\s*\d+[\].:-]?\s*/, '')));
+        await addTopics(parseTopics(content));
       } else {
         throw new Error('Use a clear image, PDF, TXT, or CSV file. DOCX files are not supported by the browser uploader yet.');
       }
-    } catch (err) { setError(err.message); }
+    } catch (err) { setError(err.message); } finally { setSaving(false); }
   };
 
   const removeTopic = async (id) => {
@@ -81,7 +97,7 @@ export default function AdminLecturette() {
         <form onSubmit={uploadText} className="bg-[#1b2212] border border-[#3a4520] rounded-2xl p-6 space-y-4">
           <h2 className="font-heading font-bold text-[#c8a84b]">Paste topics</h2>
           <textarea value={text} onChange={(event) => setText(event.target.value)} rows={9} placeholder={'Leadership\nClimate change\nTechnology in education'} className="w-full bg-[#12160a] border border-[#3a4520] rounded-lg p-3 text-sm text-[#e8e4d0]" />
-          <button className="px-5 py-2.5 rounded-lg bg-[#c8a84b] text-[#12160a] font-bold">Add topics</button>
+          <button disabled={saving} className="px-5 py-2.5 rounded-lg bg-[#c8a84b] text-[#12160a] font-bold disabled:opacity-50">{saving ? 'Adding topics...' : 'Add topics'}</button>
         </form>
         <div className="bg-[#1b2212] border border-[#3a4520] rounded-2xl p-6 space-y-4">
           <h2 className="font-heading font-bold text-[#c8a84b]">Upload source</h2>
