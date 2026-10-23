@@ -41,6 +41,31 @@ export default function AdminLecturette() {
     await loadTopics();
   };
 
+  const readImageAttachment = (sourceFile) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, 1800 / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const context = canvas.getContext('2d');
+        if (!context) {
+          reject(new Error('Your browser could not prepare the image for extraction.'));
+          return;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve({ mimeType: 'image/jpeg', data: dataUrl.split(',')[1] });
+      };
+      image.onerror = () => reject(new Error('The selected image could not be decoded. Try a JPG or PNG image.'));
+      image.src = String(reader.result);
+    };
+    reader.onerror = () => reject(new Error('Could not read the selected image.'));
+    reader.readAsDataURL(sourceFile);
+  });
+
   const uploadText = async (event) => {
     event.preventDefault();
     setError('');
@@ -55,17 +80,16 @@ export default function AdminLecturette() {
     setStatus('');
     setSaving(true);
     try {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        const dataUrl = await new Promise((resolve, reject) => {
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = () => reject(new Error('Could not read the image.'));
-          reader.readAsDataURL(file);
-        });
-        const [, data] = dataUrl.split(',');
-        const result = await extractLecturetteTopics({ mimeType: file.type, data });
+      const fileName = file.name.toLowerCase();
+      const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(fileName);
+      if (isImage) {
+        setStatus('Reading image and extracting topics with Gemini...');
+        const result = await extractLecturetteTopics(await readImageAttachment(file));
+        if (!Array.isArray(result.topics) || !result.topics.length) {
+          throw new Error('Gemini did not find any topics in the image. Use a clear image with visible text.');
+        }
         await addTopics(result.topics || []);
-      } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      } else if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
         const reader = new FileReader();
         const dataUrl = await new Promise((resolve, reject) => {
           reader.onload = () => resolve(String(reader.result));
@@ -73,7 +97,11 @@ export default function AdminLecturette() {
           reader.readAsDataURL(file);
         });
         const [, data] = dataUrl.split(',');
+        setStatus('Reading PDF and extracting topics with Gemini...');
         const result = await extractLecturetteTopics({ mimeType: 'application/pdf', data });
+        if (!Array.isArray(result.topics) || !result.topics.length) {
+          throw new Error('Gemini did not find any topics in the PDF.');
+        }
         await addTopics(result.topics || []);
       } else if (file.type === 'text/plain' || file.name.endsWith('.csv')) {
         const content = await file.text();
@@ -102,8 +130,12 @@ export default function AdminLecturette() {
         <div className="bg-[#1b2212] border border-[#3a4520] rounded-2xl p-6 space-y-4">
           <h2 className="font-heading font-bold text-[#c8a84b]">Upload source</h2>
           <p className="text-xs text-[#9a9780]">Upload a clear image/PDF containing four topics, or a TXT/CSV file with one topic per line.</p>
-          <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv" onChange={(event) => setFile(event.target.files?.[0] || null)} className="w-full text-sm" />
-          <button onClick={extractFromFile} disabled={!file} className="px-5 py-2.5 rounded-lg bg-[#4a5c2a] text-white font-bold disabled:opacity-40 flex items-center gap-2"><Upload className="w-4 h-4" /> Extract and add</button>
+          <input id="lecturette-source-file" type="file" accept="image/*,application/pdf,.pdf,.txt,.csv" onChange={(event) => { setFile(event.target.files?.[0] || null); setError(''); setStatus(''); }} className="sr-only" />
+          <label htmlFor="lecturette-source-file" className="inline-flex cursor-pointer rounded-lg border border-[#3a4520] bg-[#12160a] px-4 py-2 text-sm text-[#e8e4d0] hover:border-[#c8a84b]">
+            Choose image or document
+          </label>
+          <p className="text-xs text-[#c8a84b] min-h-4">{file ? file.name : 'No file selected'}</p>
+          <button type="button" onClick={extractFromFile} disabled={!file || saving} className="px-5 py-2.5 rounded-lg bg-[#4a5c2a] text-white font-bold disabled:opacity-40 flex items-center gap-2"><Upload className="w-4 h-4" /> {saving ? 'Extracting...' : 'Extract and add'}</button>
         </div>
       </div>
       {status && <p className="text-sm text-emerald-300">{status}</p>}
