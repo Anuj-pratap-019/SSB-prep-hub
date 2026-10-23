@@ -12,9 +12,11 @@ import OIR from './pages/OIR';
 import PIMock from './pages/PIMock';
 import SD from './pages/SD';
 import GTOGuide from './pages/GTOGuide';
+import Lecturette from './pages/Lecturette';
 import Dashboard from './pages/Dashboard';
 import AdminImages from './pages/AdminImages';
 import AdminWAT from './pages/AdminWAT';
+import AdminLecturette from './pages/AdminLecturette';
 import Admin from './pages/Admin';
 import ResetPassword from './pages/ResetPassword';
 import AuthGate from './components/AuthGate';
@@ -42,9 +44,11 @@ export default function App() {
             <Route path="/sd" element={<SD />} />
             <Route path="/pi" element={<PIMock />} />
             <Route path="/gto" element={<GTOGuide />} />
+            <Route path="/gto/lecturette" element={<Lecturette />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin/images" element={<AdminGate><AdminImages /></AdminGate>} />
             <Route path="/admin/wat" element={<AdminGate><AdminWAT /></AdminGate>} />
+            <Route path="/admin/lecturette" element={<AdminGate><AdminLecturette /></AdminGate>} />
             <Route path="/admin" element={<AdminGate><Admin /></AdminGate>} />
             <Route path="/reset-password" element={<ResetPassword />} />
             

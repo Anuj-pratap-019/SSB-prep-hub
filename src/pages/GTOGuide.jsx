@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Shield, Award, CheckCircle, ChevronRight, Compass } from 'lucide-react';
+import { Shield, Award, CheckCircle, ChevronRight, Compass, Video } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { GTO_TASKS } from '../data/olqs';
 import TestPageHeader from '../components/TestPageHeader';
 
@@ -17,6 +18,13 @@ export default function GTOGuide() {
         subtitle="Complete strategy guide for all 9–10 outdoor & indoor Group Testing Officer tasks — PGT, HGT, Command Task, Snake Race, and Lecturette."
         badge="Ground Tasks Guide"
       />
+      <Link to="/gto/lecturette" className="flex items-center justify-between bg-[#1b2212] border-2 border-[#c8a84b] rounded-2xl p-5 hover:bg-[#222810]">
+        <div>
+          <h2 className="font-heading text-xl font-bold text-[#c8a84b]">Lecturette Evaluation</h2>
+          <p className="text-sm text-[#9a9780] mt-1">Choose one of four topics, prepare for 3 minutes, and deliver a recorded 3-minute lecturette with AI feedback.</p>
+        </div>
+        <Video className="w-7 h-7 text-[#c8a84b] flex-shrink-0" />
+      </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         

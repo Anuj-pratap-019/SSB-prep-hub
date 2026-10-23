@@ -40,6 +40,26 @@ create table if not exists public.evaluation_history (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.lecturette_topics (
+  id uuid primary key default gen_random_uuid(),
+  topic text not null unique,
+  active boolean not null default true,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.lecturette_attempts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  topic text not null,
+  transcript text not null default '',
+  video_path text not null,
+  score numeric,
+  verdict text not null default '',
+  feedback text not null default '',
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.wat_words (
   id uuid primary key default gen_random_uuid(),
   word text not null,
@@ -88,6 +108,8 @@ alter table public.profiles enable row level security;
 alter table public.ppdt_images enable row level security;
 alter table public.ppdt_attempts enable row level security;
 alter table public.evaluation_history enable row level security;
+alter table public.lecturette_topics enable row level security;
+alter table public.lecturette_attempts enable row level security;
 alter table public.wat_words enable row level security;
 
 drop policy if exists "Users can read their profile" on public.profiles;
@@ -126,6 +148,27 @@ create policy "Users can create their evaluation history"
   on public.evaluation_history for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Anyone can read active lecturette topics" on public.lecturette_topics;
+create policy "Anyone can read active lecturette topics"
+  on public.lecturette_topics for select
+  using (active = true or public.is_admin());
+
+drop policy if exists "Admins can manage lecturette topics" on public.lecturette_topics;
+create policy "Admins can manage lecturette topics"
+  on public.lecturette_topics for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "Users can read their lecturette attempts" on public.lecturette_attempts;
+create policy "Users can read their lecturette attempts"
+  on public.lecturette_attempts for select
+  using (auth.uid() = user_id or public.is_admin());
+
+drop policy if exists "Users can create their lecturette attempts" on public.lecturette_attempts;
+create policy "Users can create their lecturette attempts"
+  on public.lecturette_attempts for insert
+  with check (auth.uid() = user_id);
+
 drop policy if exists "Anyone can read active WAT words" on public.wat_words;
 create policy "Anyone can read active WAT words"
   on public.wat_words for select
@@ -140,6 +183,26 @@ create policy "Admins can manage WAT words"
 insert into storage.buckets (id, name, public)
 values ('ppdt-images', 'ppdt-images', false)
 on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+values ('lecturette-videos', 'lecturette-videos', false)
+on conflict (id) do nothing;
+
+drop policy if exists "Users can upload lecturette videos" on storage.objects;
+create policy "Users can upload lecturette videos"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'lecturette-videos'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+drop policy if exists "Users can read their lecturette videos" on storage.objects;
+create policy "Users can read their lecturette videos"
+  on storage.objects for select
+  using (
+    bucket_id = 'lecturette-videos'
+    and (public.is_admin() or auth.uid()::text = (storage.foldername(name))[1])
+  );
 
 drop policy if exists "Anyone can read active PPDT files" on storage.objects;
 create policy "Anyone can read active PPDT files"

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Library, LogIn, LogOut, Shield } from 'lucide-react';
+import { Image, Library, LogIn, LogOut, Shield, Video } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import TestPageHeader from '../components/TestPageHeader';
@@ -64,6 +64,12 @@ export default function Admin() {
           <Image className="w-8 h-8 text-[#c8a84b]" />
           <h2 className="font-heading text-xl font-bold text-[#c8a84b]">PPDT Image Library</h2>
           <p className="text-sm text-[#9a9780]">Upload, activate, deactivate, and remove PPDT assessment pictures.</p>
+          <span className="text-xs text-[#c8a84b] font-bold uppercase tracking-wider">Open library →</span>
+        </Link>
+        <Link to="/admin/lecturette" className="bg-[#1b2212] border-2 border-[#3a4520] hover:border-[#c8a84b] rounded-2xl p-6 space-y-3 transition-colors">
+          <Video className="w-8 h-8 text-[#c8a84b]" />
+          <h2 className="font-heading text-xl font-bold text-[#c8a84b]">Lecturette Topic Library</h2>
+          <p className="text-sm text-[#9a9780]">Add topics line by line or extract four topics from a clear image.</p>
           <span className="text-xs text-[#c8a84b] font-bold uppercase tracking-wider">Open library →</span>
         </Link>
       </div>

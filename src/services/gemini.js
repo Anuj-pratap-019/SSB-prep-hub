@@ -305,6 +305,25 @@ Read the numbered handwritten responses from the attached sheet. Evaluate answer
   return callGemini(prompt, systemInstruction, true, sheetImage);
 }
 
+export async function extractLecturetteTopics(document) {
+  const prompt = `Extract exactly four lecturette topics from the attached image or document. Return JSON only in this format: {"topics":["topic 1","topic 2","topic 3","topic 4"]}. Do not add explanations.`;
+  return callGemini(prompt, 'You extract clearly printed lecturette topics for an SSB content library.', true, document);
+}
+
+export async function evaluateLecturette({ topic, transcript }) {
+  const systemInstruction = `You are an SSB Group Testing Officer evaluating a 3-minute lecturette.
+Assess the spoken content, structure, factual balance, confidence indicators in wording, relevance to the topic, and officer-like qualities.
+Return JSON:
+{"score":number,"verdict":"Strong"|"Developing"|"Needs Improvement","contentCoverage":string,"structureFeedback":string,"olqsDemonstrated":[string],"improvementSuggestions":[string],"feedback":string}`;
+  const prompt = `Topic: "${topic}"
+Transcript captured from the candidate's recorded lecturette:
+"""
+${transcript || 'No transcript was captured. Assess this as an incomplete submission.'}
+"""
+Give practical, constructive feedback for the next attempt.`;
+  return callGemini(prompt, systemInstruction, true);
+}
+
 /**
  * SRT Reaction Evaluator
  */
