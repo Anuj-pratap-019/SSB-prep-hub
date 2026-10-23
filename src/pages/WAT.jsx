@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import TestPageHeader from '../components/TestPageHeader';
 
 export default function WAT() {
-  const [mode, setMode] = useState('full'); // 'full' (15s automatic) | 'practice' (untimed + AI)
+  const [mode, setMode] = useState('full'); // 'full' (60 words) | 'sectional' (10 words)
   const [isRunning, setIsRunning] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(15);
@@ -27,7 +27,8 @@ export default function WAT() {
   const [sheetError, setSheetError] = useState('');
 
   const testWords = libraryWords.slice(0, 60);
-  const activeWordObj = testWords[currentIndex] || testWords[0];
+  const activeWords = mode === 'sectional' ? libraryWords.slice(0, 10) : testWords;
+  const activeWordObj = activeWords[currentIndex] || activeWords[0];
 
   useEffect(() => {
     let mounted = true;
@@ -41,11 +42,11 @@ export default function WAT() {
   // 15-second countdown timer for official SSB mode
   useEffect(() => {
     let timer = null;
-    if (isRunning && mode === 'full' && secondsLeft > 0) {
+    if (isRunning && ['full', 'sectional'].includes(mode) && secondsLeft > 0) {
       timer = setInterval(() => {
         setSecondsLeft((prev) => prev - 1);
       }, 1000);
-    } else if (isRunning && mode === 'full' && secondsLeft === 0) {
+    } else if (isRunning && ['full', 'sectional'].includes(mode) && secondsLeft === 0) {
       // Auto-advance to next word on 15s expiry
       handleNextWord();
     }
@@ -87,7 +88,7 @@ export default function WAT() {
       }
     }
 
-    if (currentIndex + 1 < testWords.length) {
+    if (currentIndex + 1 < activeWords.length) {
       setCurrentIndex((prev) => prev + 1);
       setCurrentInput('');
       setSecondsLeft(15);
@@ -113,7 +114,7 @@ export default function WAT() {
     setSheetEvaluation(null);
     setSheetEvaluating(true);
     try {
-      const result = await evaluateWATSheet(testWords, await readImage(sheetFile));
+      const result = await evaluateWATSheet(activeWords, await readImage(sheetFile));
       await saveEvaluation({
         testType: 'WAT',
         score: result.answers?.length
@@ -140,7 +141,7 @@ export default function WAT() {
         subtitle="60 words flashed at strict 15-second intervals. Write your first natural response for each word."
         badge="Official SSB Drill"
         actions={
-          isRunning && mode === 'full' ? (
+          isRunning && ['full', 'sectional'].includes(mode) ? (
             <TimerCircle
               totalSeconds={15}
               remainingSeconds={secondsLeft}
@@ -159,7 +160,7 @@ export default function WAT() {
               Test Instructions
             </h2>
             <p className="text-sm text-[#9a9780] leading-relaxed">
-              {testWords.length} words are flashed one at a time for <strong className="text-[#c8a84b]">15 seconds each</strong>.
+              {mode === 'sectional' ? '10 words are flashed' : `${testWords.length} words are flashed`} one at a time for <strong className="text-[#c8a84b]">15 seconds each</strong>.
               Read the word, write the first meaningful sentence that comes to mind, and leave the numbered line blank if you miss a word.
             </p>
           </div>
@@ -174,7 +175,10 @@ export default function WAT() {
               <li>After the test, upload a clear photo of the numbered sheet for evaluation.</li>
             </ul>
             <button onClick={() => startTest('full')} className="mt-2 w-full sm:w-auto px-8 py-3 rounded-lg bg-[#c8a84b] text-[#12160a] font-heading font-bold uppercase tracking-wider">
-              Proceed to first word
+              Start 60-word mock
+            </button>
+            <button onClick={() => startTest('sectional')} className="mt-2 w-full sm:w-auto px-8 py-3 rounded-lg border border-[#c8a84b] text-[#c8a84b] font-heading font-bold uppercase tracking-wider">
+              Start 10-word sectional mock
             </button>
           </div>
         </div>
@@ -184,7 +188,7 @@ export default function WAT() {
       {isRunning && (
         <div className="bg-[#1b2212] border-2 border-[#c8a84b]/60 rounded-2xl p-6 sm:p-8 space-y-6">
           <div className="flex items-center justify-between text-xs font-mono text-[#9a9780]">
-            <span>Word #{currentIndex + 1} of {testWords.length}</span>
+            <span>Word #{currentIndex + 1} of {activeWords.length}</span>
             <span className="text-[#c8a84b]">Write your first response</span>
           </div>
 
@@ -253,12 +257,12 @@ export default function WAT() {
               WAT Session Complete! 🎖️
             </h2>
             <p className="text-sm text-[#9a9780]">
-              You attempted {Object.keys(responses).length} words. Review your responses below.
+              You attempted {Object.keys(responses).length} of {activeWords.length} words. Review your responses below.
             </p>
           </div>
 
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-            {testWords.map((w, idx) => (
+            {activeWords.map((w, idx) => (
               <div
                 key={idx}
                 className="bg-[#12160a] border border-[#3a4520] rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
@@ -279,7 +283,7 @@ export default function WAT() {
           <div className="border-t border-[#3a4520] pt-5 space-y-3">
             <div>
               <h3 className="font-heading font-bold text-[#c8a84b] flex items-center gap-2"><FileImage className="w-4 h-4" /> Evaluate a handwritten answer sheet</h3>
-              <p className="text-xs text-[#9a9780] mt-1">For reliable matching, number your paper 1–60 and leave a blank line for skipped words. Upload a clear JPG, PNG, or WEBP photo.</p>
+              <p className="text-xs text-[#9a9780] mt-1">For reliable matching, number your paper 1–{activeWords.length} and leave a blank line for skipped words. Upload a clear JPG, PNG, or WEBP photo.</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setSheetFile(event.target.files?.[0] || null)} className="flex-1 bg-[#12160a] border border-[#3a4520] rounded-lg p-2 text-sm" />
@@ -300,10 +304,10 @@ export default function WAT() {
 
           <div className="flex justify-center gap-3 pt-4">
             <button
-              onClick={() => startTest('full')}
+              onClick={() => startTest(mode)}
               className="px-6 py-2.5 rounded-lg bg-[#c8a84b] text-[#12160a] font-heading font-bold text-xs uppercase"
             >
-              Retake 60 Words
+              Retake {activeWords.length} Words
             </button>
             <button
               onClick={() => { setIsCompleted(false); setIsRunning(false); }}
