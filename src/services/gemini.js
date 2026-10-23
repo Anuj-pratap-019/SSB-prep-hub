@@ -2,7 +2,7 @@
 // Uses stable Gemini API model IDs with a lower-cost fallback.
 
 const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
 const REQUEST_TIMEOUT_MS = 45000;
 
 function describeApiFailure(status, errorMessage) {
